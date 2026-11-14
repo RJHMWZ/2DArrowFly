@@ -334,7 +334,7 @@ namespace HueRelay
         }
 
         /// <summary>
-        /// 绑定已保存的场景组件、加载关卡，并按本地进度决定是否展示首次教学。
+        /// 绑定已保存的场景组件，每次从第一关开始，并按教学标记决定是否展示首次教学。
         /// </summary>
         private void Awake()
         {
@@ -349,7 +349,12 @@ namespace HueRelay
             }
             levels = JsonUtility.FromJson<LevelCollection>(sceneView.levelData.text).levels;
             now = Time.unscaledTime;
-            StartLevel(Mathf.Min(4, PlayerPrefs.GetInt("cc_prog", 0)));
+            if (PlayerPrefs.HasKey("cc_prog"))
+            {
+                PlayerPrefs.DeleteKey("cc_prog");
+                PlayerPrefs.Save();
+            }
+            StartLevel(0);
             if (PlayerPrefs.GetInt("cc_seen", 0) == 0)
                 StartTutorial();
         }
@@ -784,7 +789,7 @@ namespace HueRelay
         }
 
         /// <summary>
-        /// 显示唯一的结算面板；胜利时在奖励落点全部计分后保存最高分与关卡进度。
+        /// 显示唯一的结算面板；胜利时在奖励落点全部计分后保存最高分，不保存关卡进度。
         /// </summary>
         private void ShowSheet()
         {
@@ -799,8 +804,6 @@ namespace HueRelay
                     PlayerPrefs.SetInt(Endless ? "cc_best" : "cc_b" + LevelIndex, Score);
                 }
 
-                if (!Endless)
-                    PlayerPrefs.SetInt("cc_prog", Mathf.Max(PlayerPrefs.GetInt("cc_prog", 0), LevelIndex + 1));
                 PlayerPrefs.Save();
                 chipOverride = null;
             }
