@@ -4,7 +4,7 @@ using UnityEngine;
 namespace HueRelay
 {
     /// <summary>
-    /// 棋盘整数坐标。字段名与原关卡 JSON 对应，x 向右增加，y 向下增加。
+    /// 棋盘整数坐标。x 向右增加，y 向下增加。
     /// </summary>
     [Serializable]
     public class Cell
