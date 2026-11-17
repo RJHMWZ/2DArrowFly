@@ -1,5 +1,6 @@
 using System;
 using System.Collections.Generic;
+using Newtonsoft.Json;
 using UnityEngine;
 using UnityEngine.UI;
 using static HueRelay.HueEngine;
@@ -347,15 +348,15 @@ namespace HueRelay
                 enabled = false;
                 return;
             }
-            levels = JsonUtility.FromJson<LevelCollection>(sceneView.levelData.text).levels;
+            levels = JsonConvert.DeserializeObject<LevelCollection>(sceneView.levelData.text).levels;
             now = Time.unscaledTime;
             if (PlayerPrefs.HasKey("cc_prog"))
             {
                 PlayerPrefs.DeleteKey("cc_prog");
                 PlayerPrefs.Save();
             }
-            StartLevel(0);
-            if (PlayerPrefs.GetInt("cc_seen", 0) == 0)
+            StartLevel(UIManager.Instance != null ? UIManager.Instance.startingLevel - 1 : 0);
+            if ((UIManager.Instance == null || UIManager.Instance.showTutorial) && PlayerPrefs.GetInt("cc_seen", 0) == 0)
                 StartTutorial();
         }
 
@@ -617,6 +618,8 @@ namespace HueRelay
         /// <param name="bi">命中的箭头编号。</param>
         public void TapArrow(int bi)
         {
+            if (UIManager.Instance != null && UIManager.Instance.BlocksGameplay)
+                return;
             if (bi < 0 || bi >= P.n || (Mask & (1 << bi)) == 0 || Over || (busy && tut >= 0) || now - built < P.n * .026f + .3f || (tut < 0 && Taps >= Limit))
                 return;
             if (tut >= 0)
@@ -637,6 +640,7 @@ namespace HueRelay
 
             if (q.Contains(bi) || bumps.Exists(b => b.id == bi))
                 return;
+            UIManager.Instance?.NotifyGameplayStarted();
             hintId = -1;
             Taps++;
             int em = Mask;
@@ -810,6 +814,7 @@ namespace HueRelay
 
             sheetVisible = true;
             modalAt = now;
+            UIManager.Instance?.NotifyLevelResult(Won, !Endless && LevelIndex == levels.Length - 1);
         }
 
         /// <summary>
@@ -820,6 +825,11 @@ namespace HueRelay
             now = Time.unscaledTime;
             dt = Mathf.Min(.05f, Time.unscaledDeltaTime);
             Layout();
+            if (UIManager.Instance != null && UIManager.Instance.BlocksGameplay)
+            {
+                Render();
+                return;
+            }
             // 先移除再执行；即使回调触发重置，旧任务也不会在随后再次执行。
             for (int i = 0; i < timed.Count;)
             {

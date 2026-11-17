@@ -1,0 +1,62 @@
+﻿[
+    {
+        "path":  "Assets/PlayableTemplate/Art/ArrowEscape/ButtonPlate.png",
+        "bytes":  754
+    },
+    {
+        "path":  "Assets/PlayableTemplate/Art/ArrowEscape/Pill.png",
+        "bytes":  1229
+    },
+    {
+        "path":  "Assets/PlayableTemplate/Art/ClearAway/BlueButton_Play.png",
+        "bytes":  852961
+    },
+    {
+        "path":  "Assets/PlayableTemplate/Art/ClearAway/ButtonOverride.png",
+        "bytes":  70
+    },
+    {
+        "path":  "Assets/PlayableTemplate/Art/ClearAway/ProgressWhite.png",
+        "bytes":  79
+    },
+    {
+        "path":  "Assets/PlayableTemplate/Art/LiquidTank/Card.png",
+        "bytes":  1117
+    },
+    {
+        "path":  "Assets/PlayableTemplate/Art/LiquidTank/Circle.png",
+        "bytes":  1555
+    },
+    {
+        "path":  "Assets/PlayableTemplate/Art/LiquidTank/Gordita.ttf",
+        "bytes":  16844
+    },
+    {
+        "path":  "Assets/PlayableTemplate/Art/LiquidTank/Heart.png",
+        "bytes":  3197
+    },
+    {
+        "path":  "Assets/PlayableTemplate/Art/StarPuzzle/Background.png",
+        "bytes":  76
+    },
+    {
+        "path":  "Assets/PlayableTemplate/Art/StarPuzzle/BrandLogo.png",
+        "bytes":  15751
+    },
+    {
+        "path":  "Assets/PlayableTemplate/Art/StarPuzzle/Heart.png",
+        "bytes":  3197
+    },
+    {
+        "path":  "Assets/PlayableTemplate/Materials/Poppins-SemiBold.ttf",
+        "bytes":  21632
+    },
+    {
+        "path":  "Assets/PlayableTemplate/Sprites/icon.png",
+        "bytes":  34073
+    },
+    {
+        "path":  "Assets/PlayableTemplate/Art/Reference/Highlight.png",
+        "bytes":  356
+    }
+]

@@ -9,6 +9,18 @@ namespace HueRelay
     [RequireComponent(typeof(AudioSource))]
     public sealed class HueAudio : MonoBehaviour
     {
+        [Serializable]
+        private struct PlayableTone
+        {
+            public float frequency;
+            public float duration;
+            public AudioClip clip;
+        }
+
+        // Web audio backends do not run Unity's audio-thread synthesis callback.
+        // References are baked by Tools/HueRelay/BakePlayableAudio.py, not Resources.Load.
+        [SerializeField, HideInInspector] private PlayableTone[] playableTones;
+        private AudioSource playableSource;
         /// <summary>
         /// 可复用的单个振荡声部；phase 使用弧度，time 和 duration 使用秒。
         /// </summary>
@@ -73,6 +85,12 @@ namespace HueRelay
         /// </summary>
         private void Awake()
         {
+#if UNITY_LUNA || (UNITY_WEBGL && !UNITY_EDITOR)
+            playableSource = GetComponent<AudioSource>();
+            playableSource.playOnAwake = false;
+            playableSource.loop = false;
+            playableSource.spatialBlend = 0;
+#else
             rate = AudioSettings.outputSampleRate;
             double w = 2 * Math.PI * 3800 / rate;
             double cs = Math.Cos(w);
@@ -89,6 +107,7 @@ namespace HueRelay
             var c = AudioClip.Create("Web Audio oscillator bus", 256, 1, rate, false);
             s.clip = c;
             s.Play();
+#endif
         }
 
         /// <summary>
@@ -99,6 +118,18 @@ namespace HueRelay
         /// <param name="volume">峰值音量，按原版限制为不超过 0.2。</param>
         public void Tone(double f, double d = .3, double volume = .13)
         {
+#if UNITY_LUNA || (UNITY_WEBGL && !UNITY_EDITOR)
+            if (playableTones == null || playableSource == null) return;
+            for (int i = 0; i < playableTones.Length; i++)
+            {
+                var tone = playableTones[i];
+                if (Math.Abs(tone.frequency - f) < .01 && Math.Abs(tone.duration - d) < .001)
+                {
+                    playableSource.PlayOneShot(tone.clip, (float)Math.Min(volume, .2) / .2f);
+                    return;
+                }
+            }
+#else
             lock (gate)
             {
                 for (int i = 0; i < voices.Length; i++)
@@ -114,6 +145,7 @@ namespace HueRelay
                         break;
                     }
             }
+#endif
         }
 
         /// <summary>
@@ -146,6 +178,7 @@ namespace HueRelay
         /// </summary>
         /// <param name="data">当前音频输出缓冲区。</param>
         /// <param name="channels">每帧音频采样的声道数量。</param>
+#if !UNITY_LUNA && (!UNITY_WEBGL || UNITY_EDITOR)
         private void OnAudioFilterRead(float[] data, int channels)
         {
             if (rate <= 0)
@@ -186,6 +219,7 @@ namespace HueRelay
                 }
             }
         }
+#endif
 
         /// <summary>
         /// 按平台能力播放与 Web Vibration 数组对应的震动节奏；编辑器中不触发设备震动。
@@ -224,9 +258,11 @@ namespace HueRelay
         /// </summary>
         private void OnDestroy()
         {
+#if !UNITY_LUNA && (!UNITY_WEBGL || UNITY_EDITOR)
             var s = GetComponent<AudioSource>();
             if (s && s.clip)
                 Destroy(s.clip);
+#endif
         }
     }
 }

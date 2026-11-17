@@ -1,0 +1,226 @@
+{
+    "version": "7.1.0",
+    "projectId": "abfc39acafd6405f950829fbeb8cfbbc",
+    "applicationID": 35874,
+    "creativeName": "HueRelay",
+    "pgServer": "EU",
+    "window": {
+        "‐⁙": true
+    },
+    "unity": {
+        "environmentID": -2046714784,
+        "scripts": {
+            "excludes": [
+                "**/Editor/",
+                "**/Luna/RuntimeScripts/",
+                "**/FacebookSDK/",
+                "**/googleads**/",
+                "**/AdMobPlugin/",
+                "**/InMobiAds/",
+                "**/AudienceNetwork/",
+                "**/YandexMobileAds/",
+                "**/Fyber/",
+                "**/FairBid/",
+                "**/AppsFlyer/",
+                "**/IronSource/",
+                "**/Vungle/",
+                "**/NiceVibrations/",
+                "**/GameAnalytics/",
+                "**/UnityAds/",
+                "**/UnityPurchasing/",
+                "**/SupersonicWisdom/",
+                "**/StompyRobot/SRDebugger/",
+                "**/StompyRobot/SRF/",
+                "**/StompyRobot/SROptions/",
+                "**/ThirdParty/Obi/",
+                "**/Obi/",
+                "**/UniWebView/",
+                "**/Plugins/Sirenix/Assemblies/",
+                "**/Plugins/Sirenix/Odin Inspector/",
+                "**/Sirenix/Assemblies/",
+                "**/Sirenix/Odin Inspector/",
+                "**/MeshCombiner/",
+                "**/AnimationBaker/",
+                "Stubs/GameAnalyticsSDK",
+                "Stubs/Facebook.Unity",
+                "Stubs/FacebookGames",
+                "Stubs/FacebookPlatformServiceClient",
+                "Stubs/AdMobPlugin",
+                "Stubs/UnityEngine.Monetization",
+                "Stubs/UnityEngine.Advertisements",
+                "Stubs/UnityEngine.Purchasing",
+                "Stubs/Uniject",
+                "Stubs/InMobiAds",
+                "Stubs/AudienceNetwork",
+                "Stubs/YandexMobileAds",
+                "Stubs/Fyber",
+                "Stubs/GoogleMobileAds",
+                "Stubs/MiniJSON",
+                "Stubs/Firebase",
+                "Stubs/AppsFlyer",
+                "Stubs/IronSource",
+                "Stubs/Vungle",
+                "Stubs/MoreMountains.NiceVibrations",
+                "Stubs/StompyRobot/SRDebugger/",
+                "Stubs/StompyRobot/SRF/",
+                "Stubs/StompyRobot/SROptions/",
+                "Stubs/ThirdParty/Obi/",
+                "Stubs/Obi/",
+                "Stubs/UniWebView/",
+                "Stubs/Plugins/Sirenix/Assemblies/",
+                "Stubs/Plugins/Sirenix/Odin Inspector/",
+                "Stubs/Sirenix/Assemblies/",
+                "Stubs/Sirenix/Odin Inspector/",
+                "Stubs/MeshCombiner/",
+                "Stubs/AnimationBaker/",
+                "Stubs/SupersonicWisdom/"
+            ],
+            "msbuildMac64": "/Library/Frameworks/Mono.framework/Versions/Current/bin/msbuild",
+            "msbuildWin64": "C:\\Program Files\\Microsoft Visual Studio\\2022\\Community\\MSBuild\\Current\\Bin\\MSBuild.exe",
+            "externalSources": [],
+            "externalJSLibraries": [],
+            "scriptingDefines": [],
+            "msbuildVersion": "17.14",
+            "monoVersion": "9.0.17",
+            "dotnetVersion": ""
+        },
+        "assets": {
+            "export": [
+                "resources"
+            ],
+            "excludes": [
+                "Assets/Editor/"
+            ],
+            "includes": [
+                "Assets/HueRelay/Resources/",
+                "Assets/HueRelay/Audio/Playable/",
+                "Assets/PlayableTemplate/Art/Reference/",
+                "Assets/PlayableTemplate/Art/ClearAway/BackgroundOverride.png"
+            ]
+        },
+        "scenes": [
+            "Assets/HueRelay/Scenes/HueRelay.unity"
+        ],
+        "disabledScenes": [],
+        "startupScene": 0,
+        "packages": {
+            "default": {
+                "applicationName": "HueRelay",
+                "orientation": "unspecified",
+                "languages": [
+                    "en"
+                ]
+            },
+            "ironsource": {
+                "packageType": 0
+            },
+            "facebook": {
+                "assetID": "",
+                "packageType": 0,
+                "disableCompression": false
+            }
+        },
+        "preloader": {
+            "logo": ""
+        },
+        "enableRealtimeShadows": false,
+        "enableLunaCompilerV2": true,
+        "optimiseShaderVariantsExport": true,
+        "enableMecanimWASM": true,
+        "minify": true,
+        "forceUncompressed": false,
+        "forceBase64": true,
+        "graphicsConstraint": 28,
+        "genericCheck": true,
+        "disableAntiAliasing": false,
+        "forceStableRandomSeed": false,
+        "unusedModules": [],
+        "disableRuntimeAnalysisForCode": true,
+        "disableRuntimeAnalysisForShaders": false,
+        "useShadersCache": true,
+        "preventUpdatingRAListWhenRAIsDisabled": false,
+        "bakeReferenceAmbientProbe": false,
+        "unusedClasses": [],
+        "unusedMethods": [],
+        "stubberDataList": [],
+        "stubberData": {
+            "SDKName": "",
+            "Namespace": "",
+            "className": "",
+            "buildPlatform": "",
+            "enabled": false
+        },
+        "playerPrefs": true,
+        "enableStaticBatching": false,
+        "enableDynamicBatching": true,
+        "forceSourcesBasedCompilation": false
+    },
+    "assets": {
+        "rules": {
+            "texture": {
+                "default": {
+                    "maxWidth": 512,
+                    "maxHeight": 512,
+                    "format": "png32",
+                    "compression": "quantSize",
+                    "quality": 65,
+                    "script": "",
+                    "ext": ""
+                },
+                "overrides": []
+            },
+            "sound": {
+                "default": {
+                    "channels": 1,
+                    "startTime": "00:00.000",
+                    "endTime": "00:00.000",
+                    "lengthInSeconds": 0.0,
+                    "bitrate": 128,
+                    "script": "",
+                    "ext": ""
+                },
+                "overrides": []
+            },
+            "font": {
+                "default": {
+                    "data": {
+                        "alphabet": " !\"#$%&'()*+,-./0123456789:;<=>?@ABCDEFGHIJKLMNOPQRSTUVWXYZ[\\]^_`abcdefghijklmnopqrstuvwxyz{|}~·×。一下不了亮会传住余先入关再出分制前剩力功动励去同后失头奖始学它完就尽局开式引录得惊成挡接提擎支教数新方无最有本棋模橙次步没法浪清漂点玩用界白的盘示第箭纪绘自色艳花被解让试说败费走越路还进连重锁长面飞高！，",
+                        "size": 64,
+                        "textureWidth": 1024,
+                        "textureHeight": 1024
+                    }
+                },
+                "overrides": []
+            },
+            "meshes": {
+                "default": {
+                    "halfPrecision": true,
+                    "useSimplification": false,
+                    "simplificationPercentage": 30,
+                    "linkCloseVertices": true
+                },
+                "overrides": []
+            },
+            "animations": {
+                "default": {
+                    "halfPrecision": true,
+                    "stripCurves": true
+                },
+                "overrides": []
+            }
+        }
+    },
+    "postprocesses": {
+        "ssao": {
+            "isActive": false,
+            "samplingQuality": 1,
+            "normalsQuality": 0,
+            "blurQuality": 0,
+            "radius": 0.1,
+            "intensity": 1.0,
+            "falloff": 100.0
+        }
+    },
+    "logLevel_Cs": "error",
+    "logLevel_Js": "trace"
+}

@@ -163,7 +163,11 @@ namespace HueRelay
             t.horizontalOverflow = HorizontalWrapMode.Overflow;
             t.verticalOverflow = VerticalWrapMode.Overflow;
             t.supportRichText = false;
+#if !UNITY_LUNA
+            // Playworks reads the authored Text settings but does not expose this setter.
             t.alignByGeometry = false;
+            t.lineSpacing = 1.35f;
+#endif
             var o = g.GetComponent<Outline>();
             o.effectColor = Color.white;
             o.useGraphicAlpha = true;
@@ -220,7 +224,10 @@ namespace HueRelay
             t.color = c;
             t.fontStyle = FontStyle.Normal;
             t.alignment = align;
+#if !UNITY_LUNA
+            // The exported text pool already stores 1.35 line spacing in the scene.
             t.lineSpacing = 1.35f;
+#endif
             var rt = t.rectTransform;
             rt.anchorMin = rt.anchorMax = new Vector2(0, 1);
             rt.pivot = new Vector2(align == TextAnchor.MiddleLeft ? 0 : align == TextAnchor.MiddleRight ? 1 : .5f, .5f);

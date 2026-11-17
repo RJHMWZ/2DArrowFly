@@ -35,7 +35,11 @@ namespace HueRelay
         public void Populate(VertexHelper target)
         {
             target.Clear();
-            target.AddUIVertexStream(vertices, indices);
+            // Playworks exposes individual vertex/triangle submission, not AddUIVertexStream.
+            for (int i = 0; i < vertices.Count; i++)
+                target.AddVert(vertices[i]);
+            for (int i = 0; i < indices.Count; i += 3)
+                target.AddTriangle(indices[i], indices[i + 1], indices[i + 2]);
         }
 
         /// <summary>

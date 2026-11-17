@@ -1,6 +1,6 @@
 {
   "dependencies": {
-    "com.coplaydev.unity-mcp": "file:C:/Users/yangjinsheng/Desktop/unity-mcp-main/unity-mcp-main/MCPForUnity",
+    "com.coplaydev.unity-mcp": "file:C:/Users/ivy/Desktop/UnityPackage/unity-mcp-main/MCPForUnity",
     "com.unity.collab-proxy": "2.12.4",
     "com.unity.feature.2d": "2.0.1",
     "com.unity.ide.rider": "3.0.36",
@@ -40,6 +40,9 @@
     "com.unity.modules.video": "1.0.0",
     "com.unity.modules.vr": "1.0.0",
     "com.unity.modules.wind": "1.0.0",
-    "com.unity.modules.xr": "1.0.0"
+    "com.unity.modules.xr": "1.0.0",
+    "com.unity.playworks.upp": "file:C:/Users/ivy/Desktop/UnityPackage/7.1.0/scripts",
+    "com.unity.editorcoroutines": "1.0.1",
+    "com.unity.nuget.newtonsoft-json": "3.2.2"
   }
 }
