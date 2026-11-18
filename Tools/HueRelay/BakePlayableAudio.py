@@ -14,6 +14,9 @@ ROOT = pathlib.Path(__file__).resolve().parents[2]
 OUTPUT = ROOT / 'Assets/HueRelay/Audio/Playable'
 OUTPUT.mkdir(parents=True, exist_ok=True)
 SCALE = [0, 2, 4, 7, 9, 12, 14, 16, 19, 21, 19, 16]
+# Matches HueAudio.OutputGain. The default effectsVolume=.5 produces +6 dB;
+# storing the gain in the samples avoids Playworks clamping playback gains >1.
+OUTPUT_GAIN = 4.
 tones = {(180., .14), (330., .1), (140., .2), (660., .14)}
 for note in SCALE:
     frequency = 330 * 2 ** (note / 12)
@@ -77,7 +80,7 @@ AudioImporter:
         env += (1 - math.exp(-1 / (rate * (.003 if abs(filtered) > env else .25)))) * (abs(filtered) - env)
         over = 20 * math.log10(max(.000001, env)) + 24
         db = 0 if over <= -15 else -over * (1 - 1 / 12) if over >= 15 else -(1 - 1 / 12) * (over + 15) ** 2 / 60
-        sample = filtered * 10 ** (db / 20) * .9
+        sample = filtered * 10 ** (db / 20) * .9 * OUTPUT_GAIN
         data.extend(struct.pack('<h', max(-32768, min(32767, round(sample * 32767)))))
     with wave.open(str(path), 'wb') as stream:
         stream.setnchannels(1)

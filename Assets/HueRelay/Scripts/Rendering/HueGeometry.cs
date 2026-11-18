@@ -127,7 +127,7 @@ namespace HueRelay
         }
 
         /// <summary>
-        /// 绘制圆点，并在外缘添加透明顶点带以实现几何抗锯齿。
+        /// 用四顶点包围圆点；着色器计算与原透明外缘相同的覆盖率，避免逐圆生成扇形网格。
         /// </summary>
         /// <param name="p">圆心的局部逻辑像素坐标。</param>
         /// <param name="r">逻辑像素半径。</param>
@@ -136,25 +136,22 @@ namespace HueRelay
         {
             if (r <= 0 || c.a <= 0)
                 return;
-            int n = Mathf.Clamp(Mathf.CeilToInt(r * 1.8f), 12, 80);
-            int center = V(p, c);
-            int start = vertices.Count;
             float aa = .65f / zoom;
-            for (int i = 0; i <= n; i++)
+            float extent = r + aa;
+            int first = vertices.Count;
+            for (int i = 0; i < 4; i++)
             {
-                float a = i * Mathf.PI * 2 / n;
-                Vector2 d = new Vector2(Mathf.Cos(a), Mathf.Sin(a));
-                V(p + d * Mathf.Max(0, r - aa * .3f), c);
-                V(p + d * (r + aa), Alpha(c, 0));
+                Vector2 local = new Vector2(i == 0 || i == 3 ? -extent : extent, i < 2 ? -extent : extent);
+                int index = V(p + local, c);
+                var v = vertices[index];
+                v.uv0 = local;
+                v.uv1 = new Vector2(r, aa);
+                // NORMAL.z distinguishes a circle from an ordinary polygon or shadow.
+                v.normal = new Vector3(0, 0, 1);
+                vertices[index] = v;
             }
-
-            for (int i = 0; i < n; i++)
-            {
-                int k = start + i * 2;
-                Tri(center, k, k + 2);
-                Tri(k, k + 1, k + 3);
-                Tri(k, k + 3, k + 2);
-            }
+            Tri(first, first + 1, first + 2);
+            Tri(first, first + 2, first + 3);
         }
 
         /// <summary>
@@ -212,7 +209,10 @@ namespace HueRelay
         {
             if (r <= 0 || c.a <= 0)
                 return;
-            int n = Mathf.Clamp(Mathf.CeilToInt(Mathf.Abs(end - start) * r * .7f), 12, 240);
+            // Keep chord error below 0.2 logical pixels, including the AA outer edge.
+            // The old radius-linear rule generated hundreds of segments for a thin ring.
+            float outer = (r + width * .5f) * zoom + .65f;
+            int n = Mathf.Clamp(Mathf.CeilToInt(Mathf.Abs(end - start) * Mathf.Sqrt(outer / 1.6f)), 4, 240);
             int first = vertices.Count;
             float half = width * .5f;
             float aa = .65f / zoom;
@@ -308,7 +308,10 @@ namespace HueRelay
                 int index = V(center + local, color);
                 var v = vertices[index];
                 v.uv0 = local;
-                v.uv1 = new Vector4(half.x, half.y, radius, sigma);
+                // Playworks keeps only XY of UI TEXCOORD1. Carry the remaining
+                // two shape parameters in NORMAL, which both renderers preserve.
+                v.uv1 = new Vector2(half.x, half.y);
+                v.normal = new Vector3(radius, sigma, 0);
                 vertices[index] = v;
             }
 

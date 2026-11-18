@@ -15,13 +15,13 @@ namespace HueRelay
             RoundedRectangle, Disc, RetryIcon, HintIcon
         }
 
-        [Header("形状")]
+        [Header("Shape")]
         public Shape shape;
         [Min(0)] public float radius = 20;
-        [Header("外描边")]
+        [Header("Border")]
         [Min(0)] public float borderWidth;
         public Color borderColor = Color.white;
-        [Header("柔和阴影")]
+        [Header("Soft Shadow")]
         public bool castShadow;
         [Min(0)] public float shadowBlur = 14;
         public float shadowOffset = 4;

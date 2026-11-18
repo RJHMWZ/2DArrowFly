@@ -8,7 +8,7 @@ public class GameBackgroundConfig : MonoBehaviour
 {
     [LunaPlaygroundAsset("GameBG Background Image", 1, "Game Background")]
     [LunaPlaygroundField("GameBG Background Image", 1, "Game Background")]
-    [Tooltip("中台替换图片。运行时赋给本物体的 Image；留空或使用 1×1 占位图时，保留场景 Image 原图。")]
+    [Tooltip("Replacement background image. Leave empty or use a 1x1 placeholder to keep the scene image.")]
     public Texture2D BackgroundTexture;
 
     [LunaPlaygroundField("GameBG Background Tint", 2, "Game Background")]
@@ -20,7 +20,7 @@ public class GameBackgroundConfig : MonoBehaviour
     [Range(0f, 1f)] public float BackgroundOpacity = 1f;
     float appliedOpacity;
 
-    [Tooltip("背景的专用 Canvas，排序固定在棋盘与 HUD 后方；GameBG 自身的 RectTransform 定义棋盘可用区域。")]
+    [Tooltip("Background canvas behind the board and HUD. The GameBG RectTransform defines the available play area.")]
     public Canvas RenderCanvas;
     [Tooltip("Optional authored wide-screen background, on the same background canvas. Custom middle-platform images take priority.")]
     public Image wideBackground;

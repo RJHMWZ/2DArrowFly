@@ -16,29 +16,32 @@ namespace HueRelay
         private int drawnLevel = -2;
         private int drawnTut = -2;
         private bool drawnEndless;
-        private float wrappedWidth = -1;
         private float cachedModal = -1;
-        private int wrappedStep = -1;
         private string scoreText;
         private string movesText;
         private string bestText;
         private string hintsText;
         private string chainText;
         private string titleText;
-        private string wrappedTutorial;
         private string resultTitle;
         private string resultDetail;
         private string resultMain;
         private string resultSecondary;
         private string resultScore;
+        private Puzzle renderedPuzzle;
+        private int renderedMask = -1;
+        private int renderedHint = -2;
+        private float renderedCellSize;
+        private Vector2 renderedOrigin;
+        private float renderedZoom;
+        private bool boardWasDynamic;
+        private bool effectsWereVisible;
 
         /// <summary>
         /// 按原页面层级提交一帧绘制；棋盘震动、胜利放大和固定界面分别使用各自变换。
         /// </summary>
         private void Render()
         {
-            board.Begin();
-            fx.Begin();
             RenderChrome();
             float pt = (now - punchAt) / .52f;
             float ps = pt >= 0 && pt < 1 ? 1 + .05f * Mathf.Sin(pt * Mathf.PI) * (1 - .35f * pt) : 1;
@@ -50,21 +53,44 @@ namespace HueRelay
                 float k = Mathf.Exp(-st * 9);
                 shake = new Vector2(Mathf.Sin(st * 70), Mathf.Cos(st * 55) * .6f) * shakeAmplitude * k * K;
             }
-            board.origin = fx.origin = new Vector2(ox, oy) + shake + new Vector2(P.L.w * cs, P.L.h * cs) * .5f * (1 - ps);
-            board.zoom = fx.zoom = ps;
-            RenderGrid();
-            RenderArrows();
-            RenderEffects();
-            fx.origin = Vector2.zero;
-            fx.zoom = 1;
+            Vector2 origin = new Vector2(ox, oy) + shake + new Vector2(P.L.w * cs, P.L.h * cs) * .5f * (1 - ps);
+            bool dynamicBoard = ripples.Count > 0 || flies.Count > 0 || bumps.Count > 0 || charged.Count > 0
+                || hintId >= 0 || now - built < P.n * .026f + .42f;
+            // Rebuild once after the last animation, then retain the settled mesh.
+            if (dynamicBoard || boardWasDynamic || renderedPuzzle != P || renderedMask != Mask
+                || renderedHint != hintId || renderedCellSize != cs || renderedOrigin != origin || renderedZoom != ps)
+            {
+                board.Begin();
+                board.origin = origin;
+                board.zoom = ps;
+                RenderGrid();
+                RenderArrows();
+                board.End();
+                renderedPuzzle = P;
+                renderedMask = Mask;
+                renderedHint = hintId;
+                renderedCellSize = cs;
+                renderedOrigin = origin;
+                renderedZoom = ps;
+            }
+            boardWasDynamic = dynamicBoard;
+            bool effectsVisible = conf.Count > 0 || tokens.Count > 0 || beads.Count > 0 || rings.Count > 0
+                || particles.Count > 0 || floats.Count > 0;
+            if (effectsVisible || effectsWereVisible)
+            {
+                fx.Begin();
+                fx.origin = origin;
+                fx.zoom = ps;
+                RenderEffects();
+                fx.End();
+            }
+            effectsWereVisible = effectsVisible;
             RenderCombo();
             RenderTutorial();
             RenderSheet();
             float flashAlpha = Won && Over && now - endAt < .52f
                 ? .45f * (1 - Bezier(Mathf.Clamp01((now - endAt) / .52f), 0, 0, .58f, 1)) : 0;
             sceneView.victoryFlash.color = new Color(1, 1, 1, flashAlpha);
-            board.End();
-            fx.End();
         }
 
         /// <summary>
@@ -98,20 +124,20 @@ namespace HueRelay
             if (bestScore != drawnBest)
             {
                 drawnBest = bestScore;
-                bestText = "最高 " + bestScore;
+                bestText = "Best " + bestScore;
             }
             if (drawnLevel != LevelIndex || drawnTut != tut || drawnEndless != Endless)
             {
                 drawnLevel = LevelIndex;
                 drawnTut = tut;
                 drawnEndless = Endless;
-                titleText = tut >= 0 ? "教学" : Endless ? "无尽模式" : "第 " + (LevelIndex + 1) + " / 5 关";
+                titleText = tut >= 0 ? "How to Play" : Endless ? "Endless" : "Level " + (LevelIndex + 1) + "/5";
             }
             if (Taps != drawnTaps || Limit != drawnLimit)
             {
                 drawnTaps = Taps;
                 drawnLimit = Limit;
-                movesText = "步数 " + Taps + " / " + Limit;
+                movesText = "Moves " + Taps + "/" + Limit;
             }
             sceneView.SetHud(scoreText, scoreColor, scoreScale, scoreW / K, bestText, titleText,
                 chipOverride ?? movesText, Limit - Taps <= 2 ? Orange : Ink, hintsText, hints > 0,
@@ -167,9 +193,11 @@ namespace HueRelay
             Vector2 prev = G(At(a, start)) + Vector2.right * jitter;
             s.Disc(prev, cs * width * .5f, c);
             int first = Mathf.FloorToInt(start) + 1;
-            int last = Mathf.FloorToInt(end);
-            for (int i = first; i <= last; i++)
+            for (int i = first; i < end; i++)
             {
+                // Interior cells on the same straight run do not need a new stroke or cap.
+                if (Tangent(a, i - 1) == Tangent(a, i))
+                    continue;
                 Vector2 v = G(At(a, i)) + Vector2.right * jitter;
                 s.Stroke(prev, v, cs * width, c, false);
                 s.Disc(v, cs * width * .5f, c);
@@ -187,9 +215,12 @@ namespace HueRelay
             Vector2 p1 = head - d * cs * .04f + n * cs * .15f;
             Vector2 p2 = head - d * cs * .04f - n * cs * .15f;
             s.Triangle(p0, p1, p2, c);
-            s.Stroke(p0, p1, cs * .17f * headSize, c);
-            s.Stroke(p1, p2, cs * .17f * headSize, c);
-            s.Stroke(p2, p0, cs * .17f * headSize, c);
+            s.Stroke(p0, p1, cs * .17f * headSize, c, false);
+            s.Stroke(p1, p2, cs * .17f * headSize, c, false);
+            s.Stroke(p2, p0, cs * .17f * headSize, c, false);
+            s.Disc(p0, cs * .085f * headSize, c);
+            s.Disc(p1, cs * .085f * headSize, c);
+            s.Disc(p2, cs * .085f * headSize, c);
         }
 
         /// <summary>
@@ -378,9 +409,12 @@ namespace HueRelay
                         Vector2 p1 = v - d * s * .4f + n * s * .7f;
                         Vector2 p2 = v - d * s * .4f - n * s * .7f;
                         fx.Triangle(p0, p1, p2, c);
-                        fx.Stroke(p0, p1, cs * .07f, c);
-                        fx.Stroke(p1, p2, cs * .07f, c);
-                        fx.Stroke(p2, p0, cs * .07f, c);
+                        fx.Stroke(p0, p1, cs * .07f, c, false);
+                        fx.Stroke(p1, p2, cs * .07f, c, false);
+                        fx.Stroke(p2, p0, cs * .07f, c, false);
+                        fx.Disc(p0, cs * .035f, c);
+                        fx.Disc(p1, cs * .035f, c);
+                        fx.Disc(p2, cs * .035f, c);
                     }
                 }
             }
@@ -406,7 +440,7 @@ namespace HueRelay
             if (chainN != drawnChain)
             {
                 drawnChain = chainN;
-                chainText = "连锁 ×" + chainN;
+                chainText = "Chain ×" + chainN;
             }
 
             float c = now - comboAt;
@@ -459,7 +493,7 @@ namespace HueRelay
                 Vector2 p0 = new Vector2(appX + appW / 2, stageY + stageH * .34f + 42 * K + y);
                 sceneView.milestoneNumber.text = mileN == 5 ? "×5" : mileN == 8 ? "×8" : "×12";
                 sceneView.milestoneNumber.color = sceneView.milestoneCaption.color = mileColor;
-                sceneView.milestoneCaption.text = mileN == 5 ? "漂亮" : mileN == 8 ? "惊艳" : "传说";
+                sceneView.milestoneCaption.text = mileN == 5 ? "Nice!" : mileN == 8 ? "Amazing!" : "Legendary!";
                 HueView.SetFloating(sceneView.milestoneGroup, p0, K * scale, alpha);
             }
             else if (sceneView.milestoneGroup.gameObject.activeSelf)
@@ -480,23 +514,8 @@ namespace HueRelay
                     sceneView.tutorialGroup.gameObject.SetActive(false);
                 return;
             }
-            bool button = tut >= 3;
-            float buttonWidth = (tut == 5 ? 66 : 81) * K;
-            float textW = appW - 48 * K - 36 * K - (button ? 12 * K + buttonWidth : 0);
-            if (wrappedStep != tut || wrappedWidth != textW)
-            {
-                wrappedStep = tut;
-                wrappedWidth = textW;
-                wrappedTutorial = Wrap(TutorialText[tut], textW, 17 * K);
-            }
-
-            string text = wrappedTutorial;
-            int lines = 1;
-            foreach (char ch in text)
-                if (ch == '\n')
-                    lines++;
             float p = Bezier(Mathf.Clamp01((now - tutStepAt) / .35f), .3f, 1.4f, .5f, 1);
-            sceneView.SetTutorial(text, tut, lines, K, p);
+            sceneView.SetTutorial(TutorialText[tut], tut, K, p);
 
             if (tut < 3 && !tutWait && now >= hintAt)
             {
@@ -529,29 +548,6 @@ namespace HueRelay
         }
 
         /// <summary>
-        /// 按逻辑宽度估算中文卡片换行；不改变原文、字号或教学顺序。
-        /// </summary>
-        /// <param name="s">需要绘制或换行的字符串，或特效摆动符号。</param>
-        /// <param name="width">线宽或卡片可用宽度，单位为逻辑像素。</param>
-        /// <param name="size">逻辑像素字号或粒径。</param>
-        /// <returns>插入换行后的中文提示文本。</returns>
-        private static string Wrap(string s, float width, float size)
-        {
-            int n = Mathf.Max(1, Mathf.FloorToInt(width / size));
-            if (s.Length <= n)
-                return s;
-            var b = new System.Text.StringBuilder();
-            for (int i = 0; i < s.Length; i++)
-            {
-                if (i > 0 && i % n == 0)
-                    b.Append('\n');
-                b.Append(s[i]);
-            }
-
-            return b.ToString();
-        }
-
-        /// <summary>
         /// 绘制阶段区域模糊、背景遮罩和底部胜负卡片，并同步按钮的命中区域。
         /// </summary>
         private void RenderSheet()
@@ -567,11 +563,11 @@ namespace HueRelay
             if (cachedModal != modalAt)
             {
                 cachedModal = modalAt;
-                resultTitle = Won ? (Endless ? "清盘成功" : "第 " + (LevelIndex + 1) + " 关完成") : "步数用完了";
+                resultTitle = Won ? (Endless ? "Board cleared!" : "Level " + (LevelIndex + 1) + " complete!") : "Out of moves";
                 resultScore = Score.ToString();
-                resultDetail = Won ? (record ? "新纪录！\n" : "") + "剩余 " + remaining + " 步，奖励 " + remaining * 50 + " 分" : "还剩 " + HueEngine.PC(Mask) + " 支箭";
-                resultMain = !Won ? "再试一次" : Endless ? "新的一局" : LevelIndex == 4 ? "进入无尽模式" : "下一关";
-                resultSecondary = Endless ? "重试本盘" : "重试本关";
+                resultDetail = Won ? (record ? "New best!\n" : "") + remaining + (remaining == 1 ? " move left" : " moves left") + " · +" + remaining * 50 + " bonus" : HueEngine.PC(Mask) + (HueEngine.PC(Mask) == 1 ? " arrow left" : " arrows left");
+                resultMain = !Won ? "Try Again" : Endless ? "New Board" : LevelIndex == 4 ? "Endless Mode" : "Next Level";
+                resultSecondary = "Retry";
             }
 
             float p = Bezier(Mathf.Clamp01((now - modalAt) / .4f), .3f, 1.3f, .5f, 1);

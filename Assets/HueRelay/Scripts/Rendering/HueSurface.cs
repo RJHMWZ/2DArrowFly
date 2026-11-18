@@ -13,6 +13,7 @@ namespace HueRelay
         [SerializeField, HideInInspector] private List<Text> texts = new List<Text>();
         [SerializeField, HideInInspector] private List<Outline> outlines = new List<Outline>();
         private int textUsed;
+        private int previousTextUsed;
         /// <summary>
         /// 普通无衬线字体。
         /// </summary>
@@ -96,8 +97,9 @@ namespace HueRelay
         /// <summary>提交本帧并隐藏未使用的文字槽位。</summary>
         public void End()
         {
-            for (int i = textUsed; i < texts.Count; i++)
+            for (int i = textUsed; i < previousTextUsed; i++)
                 texts[i].gameObject.SetActive(false);
+            previousTextUsed = textUsed;
             SetVerticesDirty();
         }
         /// <summary>向 Unity UI 提交动态几何。</summary>
@@ -186,6 +188,7 @@ namespace HueRelay
                 NewText();
             foreach (var t in texts)
                 t.gameObject.SetActive(false);
+            previousTextUsed = 0;
         }
 
         /// <summary>
@@ -209,7 +212,8 @@ namespace HueRelay
                 return;
             Text t = textUsed < texts.Count ? texts[textUsed] : NewText();
             var o = outlines[textUsed++];
-            t.gameObject.SetActive(true);
+            if (!t.gameObject.activeSelf)
+                t.gameObject.SetActive(true);
             bool cn = false;
             foreach (char ch in s)
                 if (ch > 255 && ch != '×' && ch != '！')

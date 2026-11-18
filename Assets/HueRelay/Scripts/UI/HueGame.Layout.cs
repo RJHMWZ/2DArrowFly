@@ -13,7 +13,7 @@ namespace HueRelay
             string reason = null;
             if (!sceneView || !audioBus || !sceneView.ValidateBindings(out reason))
             {
-                Debug.LogError(reason ?? "HueGame 尚未绑定场景中的 HueView 或 HueAudio。", this);
+                Debug.LogError(reason ?? "HueGame requires scene references to HueView and HueAudio.", this);
                 return false;
             }
             root = sceneView.canvas;
@@ -74,7 +74,7 @@ namespace HueRelay
             ox = appX + appW * .5f - P.L.w * cs * .5f;
             oy = stageY + (stageH - P.L.h * cs) * .5f;
             scoreRect = new Rect(appX + 18 * K, headY, (scoreText == null ? 1 : scoreText.Length) * 24.376f * K, 41.8f * K);
-            float chipW = (97.90625f + (Taps >= 10 ? 9.25f : 0) + (Limit >= 10 ? 9.25f : 0)) * K;
+            float chipW = (112 + (Taps >= 10 ? 9.25f : 0) + (Limit >= 10 ? 9.25f : 0)) * K;
             chipRect = new Rect(appX + appW - 18 * K - chipW, headY + headHeight - 42 * K, chipW, 38 * K);
             sceneView.ApplyLayout(viewWidth, viewHeight, K, appX, appW, safeTop, stageY, stageH,
                 ox, oy, P.L.w * cs, P.L.h * cs, tut >= 0, pixelScale);

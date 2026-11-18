@@ -201,7 +201,7 @@ namespace HueRelay
         /// 是否正在筛选无尽棋盘；阻止期间的重复按钮操作。
         /// </summary>
         private bool generating;
-        [Header("固定场景绑定")]
+        [Header("Scene Bindings")]
         [SerializeField] private HueView sceneView;
         [SerializeField] private HueAudio audioBus;
 
@@ -341,8 +341,11 @@ namespace HueRelay
         {
             Application.targetFrameRate = 60;
             Application.runInBackground = true;
+#if !UNITY_LUNA
+            // The playable host controls screen orientation and device wake state.
             Screen.sleepTimeout = SleepTimeout.NeverSleep;
             Screen.orientation = ScreenOrientation.Portrait;
+#endif
             if (!BindScene())
             {
                 enabled = false;
@@ -752,7 +755,7 @@ namespace HueRelay
             }
 
             punchAt = now;
-            chipOverride = "剩余 " + remaining;
+            chipOverride = "Left " + remaining;
             HueAudio.Vibrate(20, 30, 60);
             int tier = remaining >= 2 ? 3 : remaining == 1 ? 2 : 1;
             int[] notes =
@@ -787,7 +790,7 @@ namespace HueRelay
                     {
                         tokens.Add(new Token { t = now, from = chipRect.center - new Vector2(ox, oy), to = scoreRect.center - new Vector2(ox, oy), i = k, total = remaining });
                         bonusLaunched++;
-                        chipOverride = "剩余 " + (remaining - k - 1);
+                        chipOverride = "Left " + (remaining - k - 1);
                     });
                 }
         }
@@ -824,12 +827,9 @@ namespace HueRelay
         {
             now = Time.unscaledTime;
             dt = Mathf.Min(.05f, Time.unscaledDeltaTime);
-            Layout();
             if (UIManager.Instance != null && UIManager.Instance.BlocksGameplay)
-            {
-                Render();
                 return;
-            }
+            Layout();
             // 先移除再执行；即使回调触发重置，旧任务也不会在随后再次执行。
             for (int i = 0; i < timed.Count;)
             {

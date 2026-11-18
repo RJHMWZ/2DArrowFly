@@ -1,3 +1,4 @@
+using System.Collections.Generic;
 using UnityEngine;
 using UnityEngine.UI;
 
@@ -10,7 +11,7 @@ namespace HueRelay
     [ExecuteAlways]
     public sealed class HueView : MonoBehaviour
     {
-        [Header("场景和资源绑定")]
+        [Header("Scene and Assets")]
         public Canvas canvas;
         public TextAsset levelData;
         public Material canvasMaterial;
@@ -18,7 +19,7 @@ namespace HueRelay
         public HueSurface boardSurface;
         public HueSurface effectsSurface;
 
-        [Header("顶部固定结构")]
+        [Header("Header")]
         public RectTransform header;
         public RectTransform head;
         public Button retryButton;
@@ -34,12 +35,12 @@ namespace HueRelay
         public RectTransform progressTrack;
         public RectTransform progressFill;
 
-        [Header("棋盘容器")]
+        [Header("Board")]
         public RectTransform stage;
         public RectTransform boardFrame;
         public HuePanel boardBackground;
 
-        [Header("连锁和里程碑")]
+        [Header("Chains and Milestones")]
         public CanvasGroup comboGroup;
         public Text combo;
         public CanvasGroup milestoneGroup;
@@ -47,13 +48,13 @@ namespace HueRelay
         public Text milestoneCaption;
         public RawImage finger;
 
-        [Header("教学卡片")]
+        [Header("Tutorial Card")]
         public CanvasGroup tutorialGroup;
         public Text tutorialText;
         public Button tutorialNext;
         public Text tutorialNextText;
 
-        [Header("结算卡片")]
+        [Header("Result Card")]
         public HuePanel resultBackdrop;
         public CanvasGroup resultGroup;
         public Text resultTitle;
@@ -66,7 +67,7 @@ namespace HueRelay
         public Text resultSecondaryText;
         public HuePanel victoryFlash;
 
-        [Header("固定布局参数（CSS 逻辑像素）")]
+        [Header("Layout (Logical Pixels)")]
         [Min(0)] public float sidePadding = 14;
         [Min(0)] public float topPadding = 12;
         [Min(0)] public float toolbarHeight = 44;
@@ -89,6 +90,20 @@ namespace HueRelay
         private Vector2 previewSize;
         private float lastResultDetail = -1;
         private bool lastResultWin;
+        private string measuredTutorial;
+        private float measuredTutorialWidth = -1;
+        private float tutorialTextHeight;
+        private string measuredDetail;
+        private float measuredDetailWidth = -1;
+        private float resultDetailHeight;
+        private sealed class TextFit
+        {
+            public string text;
+            public float width;
+            public int maximum;
+            public Font font;
+        }
+        private readonly Dictionary<Text, TextFit> textFits = new Dictionary<Text, TextFit>();
 
         /// <summary>启动前验证场景绑定；缺失时由控制器报错，不回退为运行时重新搭建整套 UI。</summary>
         public bool ValidateBindings(out string reason)
@@ -101,7 +116,7 @@ namespace HueRelay
                 && tutorialNext && tutorialNextText && resultBackdrop && resultGroup && resultTitle
                 && resultScore && resultDetail && resultButtons && resultPrimary && resultPrimaryText
                 && resultSecondary && resultSecondaryText && victoryFlash && effectsSurface.TextCapacity >= 40;
-            reason = valid ? null : "HueView 的固定界面、资源或预置特效文字池存在未绑定项。";
+            reason = valid ? null : "HueView has missing UI, asset or effect text pool references.";
             return valid;
         }
 
@@ -141,6 +156,12 @@ namespace HueRelay
             boardSurface.rectTransform.sizeDelta = effectsSurface.rectTransform.sizeDelta = new Vector2(width, height);
             best.gameObject.SetActive(!teaching);
             resultGroup.transform.localScale = tutorialGroup.transform.localScale = Vector3.one * scale;
+            float overlayWidth = (appWidth / scale - 32) / 1.4f;
+            ((RectTransform)comboGroup.transform).SetSizeWithCurrentAnchors(RectTransform.Axis.Horizontal, overlayWidth);
+            ((RectTransform)milestoneGroup.transform).SetSizeWithCurrentAnchors(RectTransform.Axis.Horizontal, overlayWidth);
+            CenterOverlay(combo, overlayWidth);
+            CenterOverlay(milestoneNumber, overlayWidth);
+            CenterOverlay(milestoneCaption, overlayWidth);
             Shader.SetGlobalFloat("_HueBlurPixels", backdropBlur * scale * physicalScale);
         }
 
@@ -151,14 +172,19 @@ namespace HueRelay
         {
             score.text = scoreValue;
             score.color = scoreColor;
-            score.rectTransform.SetSizeWithCurrentAnchors(RectTransform.Axis.Horizontal, scoreWidth);
-            score.rectTransform.anchoredPosition = new Vector2(scoreWidth * .5f, -scoreLineHeight * .47f);
+            float columnWidth = head.rect.width * .32f;
+            FitLabel(score, columnWidth / Mathf.Max(1.6f, scoreScale), 44);
+            score.rectTransform.anchoredPosition = new Vector2(columnWidth * .5f, -scoreLineHeight * .47f);
             score.rectTransform.localScale = Vector3.one * scoreScale;
             best.text = bestValue;
+            FitLabel(best, columnWidth, 13);
             levelTitle.text = titleValue;
+            movesWidth = Mathf.Min(movesWidth, head.rect.width * .34f);
+            FitLabel(levelTitle, Mathf.Max(40, head.rect.width - 2 * Mathf.Max(columnWidth, movesWidth) - 12), 20);
             moves.text = movesValue;
             moves.color = movesColor;
             movesChip.rectTransform.SetSizeWithCurrentAnchors(RectTransform.Axis.Horizontal, movesWidth);
+            FitLabel(moves, movesWidth - 20, 15);
             hintCount.text = hintsValue;
             SetActive(hintBadge.gameObject, badgeVisible);
             Vector2 maximum = progressFill.anchorMax;
@@ -180,25 +206,38 @@ namespace HueRelay
         }
 
         /// <summary>更新教学内容与卡片尺寸；按钮、背景和文字组件始终来自场景。</summary>
-        public void SetTutorial(string text, int step, int lines, float scale, float easing)
+        public void SetTutorial(string text, int step, float scale, float easing)
         {
             SetActive(tutorialGroup.gameObject, true);
             tutorialGroup.alpha = Mathf.Clamp01(easing);
             bool hasButton = step >= 3;
-            float buttonWidth = step == 5 ? 66 : 81;
+            float buttonWidth = step == 5 ? 76 : 72;
             float width = stage.rect.width / scale - 20;
-            float height = 32 + Mathf.Max(lines * 24.65f, hasButton ? 38 : 0);
+            float textWidth = width - 36 - (hasButton ? 12 + buttonWidth : 0);
+            if (measuredTutorial != text || measuredTutorialWidth != textWidth)
+            {
+                measuredTutorial = text;
+                measuredTutorialWidth = textWidth;
+                tutorialText.horizontalOverflow = HorizontalWrapMode.Wrap;
+                tutorialText.verticalOverflow = VerticalWrapMode.Overflow;
+                tutorialText.rectTransform.sizeDelta = new Vector2(textWidth, 200);
+                // Exported Text can retain its original unwrapped mesh width after
+                // a resize. Explicit word breaks keep both renderers in agreement.
+                tutorialText.text = WrapWords(tutorialText, text, textWidth - 2);
+                tutorialTextHeight = CardTextHeight(tutorialText);
+            }
+            float height = 32 + Mathf.Max(tutorialTextHeight, hasButton ? 38 : 0);
             RectTransform card = (RectTransform)tutorialGroup.transform;
             card.sizeDelta = new Vector2(width, height);
             card.anchoredPosition = new Vector2(0, 10 * scale - (1 - easing) * 40 * scale);
-            card.localScale = Vector3.one * scale;
-            tutorialText.text = text;
-            tutorialText.rectTransform.sizeDelta = new Vector2(width - 36 - (hasButton ? 12 + buttonWidth : 0), lines * 24.65f);
+            card.localScale = Vector3.one * scale * Mathf.Min(1, Mathf.Max(.1f, stage.rect.height / scale - 20) / height);
+            tutorialText.rectTransform.sizeDelta = new Vector2(textWidth, tutorialTextHeight);
             tutorialText.rectTransform.anchoredPosition = new Vector2(tutorialText.rectTransform.anchoredPosition.x,
-                -16 - (Mathf.Max(lines * 24.65f, hasButton ? 38 : 0) - lines * 24.65f) * .5f);
+                -16 - (Mathf.Max(tutorialTextHeight, hasButton ? 38 : 0) - tutorialTextHeight) * .5f);
             SetActive(tutorialNext.gameObject, hasButton);
             tutorialNext.GetComponent<RectTransform>().SetSizeWithCurrentAnchors(RectTransform.Axis.Horizontal, buttonWidth);
-            tutorialNextText.text = step == 5 ? "开始" : "下一步";
+            tutorialNextText.text = step == 5 ? "Play" : "Next";
+            FitLabel(tutorialNextText, buttonWidth - 16, 15);
         }
 
         /// <summary>更新结算内容和原版底部滑入曲线，不创建或销毁任何固定控件。</summary>
@@ -208,17 +247,33 @@ namespace HueRelay
             SetActive(resultBackdrop.gameObject, true);
             SetActive(resultGroup.gameObject, true);
             resultGroup.alpha = Mathf.Clamp01(easing);
-            float detailHeight = win && newRecord ? 47.6f : 23.8f;
+            float width = stage.rect.width / scale;
+            float detailWidth = width - 40;
+            if (measuredDetail != detail || measuredDetailWidth != detailWidth)
+            {
+                measuredDetail = detail;
+                measuredDetailWidth = detailWidth;
+                resultDetail.horizontalOverflow = HorizontalWrapMode.Wrap;
+                resultDetail.verticalOverflow = VerticalWrapMode.Overflow;
+                resultDetail.text = detail;
+                resultDetail.rectTransform.sizeDelta = new Vector2(detailWidth, 200);
+                resultDetailHeight = CardTextHeight(resultDetail);
+            }
+            float detailHeight = resultDetailHeight;
             RectTransform card = (RectTransform)resultGroup.transform;
-            card.sizeDelta = new Vector2(stage.rect.width / scale,
+            card.sizeDelta = new Vector2(width,
                 5 + 4 + 29 + 68 + detailHeight + 50 + (win ? 36 : 0) + (win ? 50 : 40) + 28);
             card.anchoredPosition = new Vector2(0, 8 * scale - (1 - easing) * 40 * scale);
-            card.localScale = Vector3.one * scale;
+            card.localScale = Vector3.one * scale * Mathf.Min(1, Mathf.Max(.1f, stage.rect.height / scale - 16) / card.sizeDelta.y);
             resultTitle.text = title;
             resultScore.text = number;
             resultDetail.text = detail;
             resultPrimaryText.text = primary;
             resultSecondaryText.text = secondary;
+            FitLabel(resultTitle, detailWidth, 22);
+            FitLabel(resultScore, detailWidth, 68);
+            FitLabel(resultPrimaryText, detailWidth - 32, 17);
+            FitLabel(resultSecondaryText, detailWidth - 32, 15);
             if (lastResultDetail != detailHeight || lastResultWin != win)
             {
                 lastResultDetail = detailHeight;
@@ -227,6 +282,64 @@ namespace HueRelay
                 resultButtons.SetSizeWithCurrentAnchors(RectTransform.Axis.Vertical, win ? 96 : 50);
                 SetActive(resultSecondary.gameObject, win);
             }
+        }
+
+        // Measure only when content, font or available width changes. Animation
+        // frames reuse the fitted size instead of regenerating text for measurement.
+        private void FitLabel(Text label, float width, int maximum)
+        {
+            width = Mathf.Max(1, width);
+            TextFit fit;
+            if (textFits.TryGetValue(label, out fit) && fit.text == label.text && fit.width == width
+                && fit.maximum == maximum && fit.font == label.font)
+                return;
+            if (fit == null) { fit = new TextFit(); textFits.Add(label, fit); }
+            fit.text = label.text; fit.width = width; fit.maximum = maximum; fit.font = label.font;
+            label.rectTransform.SetSizeWithCurrentAnchors(RectTransform.Axis.Horizontal, width);
+            label.horizontalOverflow = HorizontalWrapMode.Overflow;
+            label.fontSize = maximum;
+            float preferred = label.preferredWidth;
+            if (preferred > width - 2)
+                label.fontSize = Mathf.Max(1, Mathf.FloorToInt(maximum * Mathf.Max(1, width - 2) / preferred));
+        }
+
+        private static void CenterOverlay(Text label, float width)
+        {
+            var rect = label.rectTransform;
+            rect.anchorMin = rect.anchorMax = new Vector2(.5f, 1);
+            rect.anchoredPosition = new Vector2(0, rect.anchoredPosition.y);
+            rect.SetSizeWithCurrentAnchors(RectTransform.Axis.Horizontal, width);
+        }
+
+        private static string WrapWords(Text label, string text, float width)
+        {
+            var wrapped = new System.Text.StringBuilder();
+            string line = "";
+            foreach (string word in text.Split(' '))
+            {
+                string candidate = line.Length == 0 ? word : line + " " + word;
+                label.text = candidate;
+                if (line.Length > 0 && label.preferredWidth > width)
+                {
+                    wrapped.Append(line).Append('\n');
+                    line = word;
+                }
+                else line = candidate;
+            }
+            return wrapped.Append(line).ToString();
+        }
+
+        private static float CardTextHeight(Text label)
+        {
+            int lines = 1;
+            foreach (char c in label.text)
+                if (c == '\n') lines++;
+            // Playworks preferredHeight omits the authored 1.35 line spacing.
+            // Reserve a full line box per explicit line, including font metrics
+            // and padding, so vertical overflow never escapes the growing card.
+            float measured = label.preferredHeight * 1.35f;
+            float minimum = lines * label.fontSize * 1.7f;
+            return Mathf.Ceil(Mathf.Max(measured, minimum)) + 6;
         }
 
         /// <summary>重置时立即隐藏旧面板，避免等下一帧才清除上一局的可见状态。</summary>

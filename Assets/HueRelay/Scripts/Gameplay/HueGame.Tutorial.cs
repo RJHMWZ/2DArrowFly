@@ -30,12 +30,12 @@ namespace HueRelay
 
         private static readonly string[] TutorialText =
         {
-            "点箭头，让它飞出去。",
-            "前方有箭挡路，就飞不出去。",
-            "先点挡路的橙色箭。",
-            "同色箭会自动接力，不花步数。",
-            "连锁越长，分数越高。",
-            "步数用完还没清盘，就失败。"
+            "Tap an arrow to send it flying.",
+            "Blocked arrows cannot move.",
+            "Clear the orange arrow first.",
+            "Matching colors chain for free.",
+            "Longer chains earn more points.",
+            "Clear the board before moves run out."
         };
         private static readonly int[] TutorialIds =
         {

@@ -9,6 +9,12 @@ namespace HueRelay
     [RequireComponent(typeof(AudioSource))]
     public sealed class HueAudio : MonoBehaviour
     {
+        // Matches OUTPUT_GAIN in BakePlayableAudio.py. Keep Web playback gains
+        // within [0, 1], which Playworks clamps, while leaving room for adjustment.
+        private const float OutputGain = 4f;
+        [Range(0, 1), Tooltip("Effects volume: 0 mutes, 0.25 is the original level, 0.5 adds 6 dB, 1 adds 12 dB.")]
+        public float effectsVolume = .5f;
+
         [Serializable]
         private struct PlayableTone
         {
@@ -89,7 +95,10 @@ namespace HueRelay
             playableSource = GetComponent<AudioSource>();
             playableSource.playOnAwake = false;
             playableSource.loop = false;
+#if !UNITY_LUNA
+            // Playworks uses the authored 2D AudioSource; its spatialBlend setter is unsupported.
             playableSource.spatialBlend = 0;
+#endif
 #else
             rate = AudioSettings.outputSampleRate;
             double w = 2 * Math.PI * 3800 / rate;
@@ -125,7 +134,7 @@ namespace HueRelay
                 var tone = playableTones[i];
                 if (Math.Abs(tone.frequency - f) < .01 && Math.Abs(tone.duration - d) < .001)
                 {
-                    playableSource.PlayOneShot(tone.clip, (float)Math.Min(volume, .2) / .2f);
+                    playableSource.PlayOneShot(tone.clip, (float)Math.Min(volume, .2) / .2f * Mathf.Clamp01(effectsVolume));
                     return;
                 }
             }
@@ -184,6 +193,7 @@ namespace HueRelay
             if (rate <= 0)
                 return;
             double dt = 1.0 / rate;
+            float outputGain = OutputGain * Mathf.Clamp01(effectsVolume);
             lock (gate)
             {
                 for (int n = 0; n < data.Length; n += channels)
@@ -213,7 +223,7 @@ namespace HueRelay
                     float db = 20 * Mathf.Log10(Mathf.Max(.000001f, env));
                     float over = db + 24;
                     float gainDB = over <= -15 ? 0 : over >= 15 ? -over * (1 - 1 / 12f) : -(1 - 1 / 12f) * (over + 15) * (over + 15) / 60;
-                    float output = lp * Mathf.Pow(10, gainDB / 20) * .9f;
+                    float output = lp * Mathf.Pow(10, gainDB / 20) * .9f * outputGain;
                     for (int ch = 0; ch < channels; ch++)
                         data[n + ch] = output;
                 }

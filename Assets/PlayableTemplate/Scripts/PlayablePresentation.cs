@@ -119,10 +119,10 @@ public sealed class PlayablePresentation : MonoBehaviour
         if (endSubtitleText != null)
         {
             endSubtitleText.fontSize = Mathf.Max(1, Mathf.RoundToInt(32 * rootScale * endUnits));
-            // The reference aligns the complete wrapped block before truncating the
-            // invisible second line; native Text aligns only its visible first line.
-            if (endSubtitleText.preferredWidth > endSubtitle.sizeDelta.x)
-                endSubtitle.anchoredPosition += Vector2.up * (70f / 64 * endSubtitleText.fontSize * .5f);
+            endSubtitleText.horizontalOverflow = HorizontalWrapMode.Wrap;
+            // Reserve the complete wrapped paragraph instead of clipping its second line.
+            endSubtitle.sizeDelta = new Vector2(endSubtitle.sizeDelta.x,
+                Mathf.Max(endSubtitle.sizeDelta.y, Mathf.Ceil(endSubtitleText.preferredHeight) + 4 * endUnits));
         }
         Place(endButton, width * .5f, height * .72f, 440 * rootScale, 118 * rootScale, endUnits);
         if (endButtonText != null) endButtonText.fontSize = Mathf.Max(1, Mathf.RoundToInt(44 * rootScale * endUnits));

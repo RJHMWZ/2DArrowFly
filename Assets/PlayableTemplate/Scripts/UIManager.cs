@@ -18,7 +18,7 @@ public class UIManager : MonoBehaviour
     private float gameplayStartedAt;
     public PlayablePresentation presentation;
 
-    [Header("试玩流程（0 秒表示不限时）")]
+    [Header("Playable Flow (0 seconds disables the timer)")]
     [LunaPlaygroundField("Trial Duration", 1, "Playable Flow")]
     [Min(0)] public float trialDuration = 120f;
     [LunaPlaygroundField("End After Last Level", 2, "Playable Flow")]
@@ -29,7 +29,7 @@ public class UIManager : MonoBehaviour
     [Range(1, 5)] public int startingLevel = 1;
     [LunaPlaygroundField("Show Tutorial", 5, "Playable Flow")]
     public bool showTutorial = true;
-    [Tooltip("关闭时尾卡等候点击；打开时延迟调用模板 AdSkip。")]
+    [Tooltip("Wait for an end-card tap when disabled; call AdSkip after the delay when enabled.")]
     [LunaPlaygroundField("Auto Jump On End", 6, "Playable Flow")]
     public bool autoJumpOnWin;
     [LunaPlaygroundField("Jump Delay", 7, "Playable Flow")]
@@ -39,7 +39,7 @@ public class UIManager : MonoBehaviour
     public sealed class LogoBinding
     {
         public Image image;
-        [Tooltip("未配置 Logo 时显示的文字，可留空。")]
+        [Tooltip("Optional text shown when no logo is assigned.")]
         public Graphic fallback;
     }
 
@@ -48,7 +48,7 @@ public class UIManager : MonoBehaviour
     {
         public Image image;
         public Graphic label;
-        [Tooltip("替换图片时隐藏的额外高光等装饰；留空则保留。")]
+        [Tooltip("Decorations hidden when replacing the button image. Leave empty to keep them.")]
         public Graphic[] decorations = new Graphic[0];
         [System.NonSerialized] bool captured;
         [System.NonSerialized] Sprite originalSprite;
@@ -81,12 +81,12 @@ public class UIManager : MonoBehaviour
         }
     }
 
-    [Header("品牌素材（统一修改）")]
+    [Header("Brand Assets")]
     public Image[] brandIconTargets = new Image[0];
     public LogoBinding[] brandLogoTargets = new LogoBinding[0];
     public ButtonImageBinding[] ctaButtonTargets = new ButtonImageBinding[0];
 
-    [ContextMenu("应用品牌素材")]
+    [ContextMenu("Apply Brand Assets")]
     public void ApplyBranding()
     {
         Sprite icon = ResolveBrandTexture(BrandIconTexture, ref appliedIconTexture, ref generatedIcon);
@@ -126,10 +126,10 @@ public class UIManager : MonoBehaviour
     public string BrandName = "";
     [LunaPlaygroundAsset("CTA Button Image", 4, "Branding")]
     [LunaPlaygroundField("CTA Button Image", 4, "Branding")]
-    [Tooltip("统一替换游戏页与尾卡按钮底图，按图片原色等比显示；清空时保留各 Image 的场景默认图。")]
+    [Tooltip("Replace gameplay and end-card button images while preserving color and aspect ratio. Leave empty to keep the scene defaults.")]
     public Texture2D CtaButtonTexture;
     [LunaPlaygroundField("Show CTA Button Text", 5, "Branding")]
-    [Tooltip("按钮图片已经包含文字时关闭，避免与场景文字重叠。")]
+    [Tooltip("Disable when the button image already contains its label.")]
     public bool ShowCtaButtonText = true;
     public Text[] brandNameTargets = new Text[0];
     public GameObject loadingPanel;
