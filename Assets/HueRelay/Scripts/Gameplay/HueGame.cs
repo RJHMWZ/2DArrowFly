@@ -342,7 +342,7 @@ namespace HueRelay
             Application.targetFrameRate = 60;
             Application.runInBackground = true;
 #if !UNITY_LUNA
-            // The playable host controls screen orientation and device wake state.
+            // Keep the game in portrait orientation while playing.
             Screen.sleepTimeout = SleepTimeout.NeverSleep;
             Screen.orientation = ScreenOrientation.Portrait;
 #endif
@@ -643,7 +643,6 @@ namespace HueRelay
 
             if (q.Contains(bi) || bumps.Exists(b => b.id == bi))
                 return;
-            UIManager.Instance?.NotifyGameplayStarted();
             hintId = -1;
             Taps++;
             int em = Mask;
@@ -817,7 +816,6 @@ namespace HueRelay
 
             sheetVisible = true;
             modalAt = now;
-            UIManager.Instance?.NotifyLevelResult(Won, !Endless && LevelIndex == levels.Length - 1);
         }
 
         /// <summary>

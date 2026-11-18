@@ -29,7 +29,6 @@ with sync_playwright() as p:
     page.wait_for_function('window.UIManager?.Instance && !UIManager.Instance.IsLoading',timeout=60000)
     page.evaluate(r'''()=>{
       window.g=UnityEngine.Object.FindObjectOfType(HueRelay.HueGame);g.enabled=false;
-      UIManager.Instance.endAfterLastLevel=false;UIManager.Instance.endOnFailure=false;
       window.uiBounds=rt=>{
         const c=Array.from({length:4},()=>new UnityEngine.Vector3());rt.GetWorldCorners(c);
         const p=c.map(v=>UnityEngine.RectTransformUtility.WorldToScreenPoint(null,v));
@@ -83,14 +82,6 @@ with sync_playwright() as p:
         page.evaluate('''()=>{g.StartLevel(3);g.now=UnityEngine.Time.unscaledTime+3;g.chainN=14;g.mileN=12;g.comboAt=g.now-.3;g.mileAt=g.now-.8;g.Render()}''')
         results.append(page.evaluate("checkEnglishUI('chain')"))
         if w in [320,390]:page.screenshot(path=str(out/f'chain-{w}x{h}.png'))
-    page.evaluate('UIManager.Instance.CompletePlayable()');page.wait_for_timeout(800)
-    for w,h in [(320,480),(390,844),(568,320),(1920,900)]:
-        page.set_viewport_size({'width':w,'height':h});page.wait_for_timeout(150)
-        state=page.evaluate('''()=>{
-          const p=UIManager.Instance.presentation,t=p.endSubtitleText,b=uiBounds(t.rectTransform);
-          return {mode:'endcard',size:[innerWidth,innerHeight],problems:t.preferredHeight>t.rectTransform.rect.height+1||b.left<0||b.right>innerWidth?['Subtitle overflow']:[],text:t.text,bounds:b};
-        }''');results.append(state)
-        if w in [320,390,568]:page.screenshot(path=str(out/f'end-{w}x{h}.png'))
     data={'cases':results,'errors':errors,'renderingWarnings':rendering_warnings}
     (out/'bounds.json').write_text(json.dumps(data,indent=2),encoding='utf-8')
     failed=[r for r in results if r['problems']]

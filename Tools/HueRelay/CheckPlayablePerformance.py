@@ -1,7 +1,7 @@
 """Regression replay for a local Playworks 7.1 develop package.
 
 Requires Python Playwright + Chrome. Exercises all five levels, including a
-14-arrow chain, cache invalidation, expired effects and end-card redraw blocking.
+14-arrow chain, cache invalidation, expired effects and endless continuation.
 """
 from pathlib import Path
 from http.server import SimpleHTTPRequestHandler,ThreadingHTTPServer
@@ -65,13 +65,15 @@ with sync_playwright() as p:
    page.wait_for_function('g.conf.Count===0 && g.rings.Count===0 && g.particles.Count===0 && g.tokens.Count===0 && g.floats.Count===0 && g.beads.Count===0',timeout=15000)
    page.wait_for_timeout(100)
    assert page.evaluate('g.fx.geometry.vertices.Count===0 && g.floats.Count===0'),'Expired effect mesh retained'
- page.wait_for_function('UIManager.Instance.HasRequestedEnd',timeout=15000)
- page.wait_for_timeout(800)
+ page.wait_for_function('g.ModalVisible',timeout=15000)
+ assert page.evaluate('!UIManager.Instance.BlocksGameplay'),'Final result blocked by ad UI'
+ page.evaluate('g.ContinueResult()')
+ page.wait_for_function('g.Endless && !g.generating && !g.Over',timeout=15000)
  page.evaluate('counts={}')
  page.wait_for_timeout(450)
- assert page.evaluate('!counts.Render'),'Game still redrawn under full-screen end card'
+ assert page.evaluate('counts.Render>0'),'Endless gameplay stopped rendering'
  assert not errors,errors
- data={'idle':idle,'levels':levels,'errors':errors,'endCardStopsGameRedraw':True,'resizeHintRetryCache':True}
+ data={'idle':idle,'levels':levels,'errors':errors,'endlessContinuation':True,'resizeHintRetryCache':True}
  (out/'regression.json').write_text(json.dumps(data,indent=2),encoding='utf-8')
  print(json.dumps(data,indent=2))
  browser.close()

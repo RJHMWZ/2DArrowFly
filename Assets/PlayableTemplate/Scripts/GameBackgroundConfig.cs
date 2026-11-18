@@ -6,17 +6,12 @@ using UnityEngine.UI;
 [RequireComponent(typeof(Image))]
 public class GameBackgroundConfig : MonoBehaviour
 {
-    [LunaPlaygroundAsset("GameBG Background Image", 1, "Game Background")]
-    [LunaPlaygroundField("GameBG Background Image", 1, "Game Background")]
     [Tooltip("Replacement background image. Leave empty or use a 1x1 placeholder to keep the scene image.")]
     public Texture2D BackgroundTexture;
 
-    [LunaPlaygroundField("GameBG Background Tint", 2, "Game Background")]
     public Color BackgroundTint = Color.white;
 
-    [LunaPlaygroundField("Show GameBG Background", 3, "Game Background")]
     public bool ShowBackground = true;
-    [LunaPlaygroundField("Background Opacity", 4, "Game Background")]
     [Range(0f, 1f)] public float BackgroundOpacity = 1f;
     float appliedOpacity;
 

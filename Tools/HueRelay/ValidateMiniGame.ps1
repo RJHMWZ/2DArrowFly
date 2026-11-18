@@ -1,7 +1,7 @@
 param([string]$UnityEditorPath)
 $ErrorActionPreference = 'Stop'
 $projectPath = [IO.Path]::GetFullPath((Join-Path $PSScriptRoot '..\..'))
-$validationPath = Join-Path $projectPath 'Logs\TemplateMigration\ValidationProject'
+$validationPath = Join-Path $projectPath 'Logs\MiniGameValidation\ValidationProject'
 if (-not $UnityEditorPath) {
     $activeEditor = Get-CimInstance Win32_Process -Filter "Name = 'Unity.exe'" |
         Where-Object { $_.CommandLine -like "*$projectPath*" -and $_.CommandLine -notlike '*AssetImportWorker*' } |
@@ -29,20 +29,19 @@ foreach ($file in Get-ChildItem -LiteralPath $validationAssets -File -Recurse) {
         Remove-Item -LiteralPath $targetPath
     }
 }
-Copy-Item -LiteralPath (Join-Path $projectPath 'luna.json') -Destination $validationPath -Force
 # The isolated check does not need an agent connection to the editor.
 $manifestPath = Join-Path $validationPath 'Packages\manifest.json'
 $manifest = Get-Content -LiteralPath $manifestPath -Raw | ConvertFrom-Json
 $manifest.dependencies.PSObject.Properties.Remove('com.coplaydev.unity-mcp')
 $manifest | ConvertTo-Json -Depth 10 | Set-Content -LiteralPath $manifestPath -Encoding UTF8
-$logPath = Join-Path $projectPath 'Logs\TemplateMigration\unity-validation.log'
-$arguments = @('-batchmode', '-nographics', '-projectPath', ('"' + $validationPath + '"'), '-executeMethod', 'HueRelay.Editor.HuePlayableTools.BatchValidate', '-logFile', ('"' + $logPath + '"'))
+$logPath = Join-Path $projectPath 'Logs\MiniGameValidation\unity-validation.log'
+$arguments = @('-batchmode', '-nographics', '-projectPath', ('"' + $validationPath + '"'), '-executeMethod', 'HueRelay.Editor.HueMiniGameTools.BatchValidate', '-logFile', ('"' + $logPath + '"'))
 $process = Start-Process -FilePath $UnityEditorPath -ArgumentList $arguments -WindowStyle Hidden -PassThru
 $process.WaitForExit()
 foreach ($file in @('validation.txt', 'playmode.txt', 'dependencies.txt')) {
-    $report = Join-Path $validationPath ('Logs\TemplateMigration\' + $file)
+    $report = Join-Path $validationPath ('Logs\MiniGameValidation\' + $file)
     if (Test-Path -LiteralPath $report) {
-        Copy-Item -LiteralPath $report -Destination (Join-Path $projectPath ('Logs\TemplateMigration\' + $file)) -Force
+        Copy-Item -LiteralPath $report -Destination (Join-Path $projectPath ('Logs\MiniGameValidation\' + $file)) -Force
         if ($file -ne 'dependencies.txt') { Get-Content -LiteralPath $report }
     }
 }

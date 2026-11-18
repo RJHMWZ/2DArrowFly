@@ -66,10 +66,7 @@ namespace HueRelay
             float headHeight = (sceneView.scoreLineHeight + sceneView.bestTopGap + (tut >= 0 ? 0 : sceneView.bestLineHeight)) * K;
             stageY = headY + headHeight + sceneView.sectionGap * K + sceneView.progressHeight * K;
             // 原页面的 800px 内容高度之外还包含上下各 12px 内边距，此处保留该实际布局。
-            float footerHeight = UIManager.Instance != null
-                ? UIManager.Instance.FooterHeightInPixels() / pixelScale
-                : 0;
-            stageH = viewHeight + 12 * K - safeBottom - stageY - footerHeight;
+            stageH = viewHeight + 12 * K - safeBottom - stageY;
             cs = Mathf.Max(16, Mathf.Min(64 * K, Mathf.Floor((appW - sceneView.sidePadding * 2 * K - 32 * K) / P.L.w), Mathf.Floor((stageH - 32 * K) / P.L.h)));
             ox = appX + appW * .5f - P.L.w * cs * .5f;
             oy = stageY + (stageH - P.L.h * cs) * .5f;

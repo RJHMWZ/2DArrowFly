@@ -358,7 +358,7 @@ namespace HueRelay
         public bool BlocksBoardPointer(Vector2 logicalPosition, float physicalScale)
         {
             Vector2 screen = new Vector2(logicalPosition.x * physicalScale, Screen.height - logicalPosition.y * physicalScale);
-            if (UIManager.Instance != null && UIManager.Instance.BlocksPointer(screen))
+            if (UIManager.Instance != null && UIManager.Instance.BlocksGameplay)
                 return true;
             if (resultGroup.gameObject.activeSelf)
                 return true;
@@ -389,9 +389,7 @@ namespace HueRelay
             float scale = Mathf.Clamp(Mathf.Min(width / 390, height / 800), .75f, 3.5f);
             float appWidth = Mathf.Min(width, 460 * scale);
             float stageY = (topPadding + toolbarHeight + sectionGap + scoreLineHeight + bestTopGap + bestLineHeight + sectionGap + progressHeight) * scale;
-            var manager = FindObjectOfType<UIManager>();
-            float footerHeight = manager != null ? manager.FooterHeightInPixels() / canvas.scaleFactor : 0;
-            float stageHeight = height + 12 * scale - stageY - footerHeight;
+            float stageHeight = height + 12 * scale - stageY;
             float cell = Mathf.Max(16, Mathf.Min(64 * scale, Mathf.Floor((appWidth - 60 * scale) / 5), Mathf.Floor((stageHeight - 32 * scale) / 6)));
             ApplyLayout(width, height, scale, (width - appWidth) * .5f, appWidth, 0, stageY, stageHeight,
                 width * .5f - cell * 2.5f, stageY + (stageHeight - cell * 6) * .5f, cell * 5, cell * 6, false, canvas.scaleFactor);
