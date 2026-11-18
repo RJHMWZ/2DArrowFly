@@ -1,5 +1,6 @@
 using UnityEngine;
 using UnityEngine.EventSystems;
+using UnityEngine.UI;
 
 namespace HueRelay
 {
@@ -11,10 +12,21 @@ namespace HueRelay
         private float started = -100;
         private float from = 1;
         private float target = 1;
+        private Button button;
+        private CanvasGroup opacity;
+        private bool? lastInteractable;
+
+        private void OnEnable()
+        {
+            button = GetComponent<Button>();
+            opacity = GetComponent<CanvasGroup>();
+            lastInteractable = null;
+        }
 
         /// <summary>开始按压反馈，不触发业务逻辑。</summary>
         public void OnPointerDown(PointerEventData eventData)
         {
+            if (button != null && !button.IsInteractable()) return;
             AnimateTo(pressedScale);
         }
         /// <summary>松开后按原版曲线恢复。</summary>
@@ -37,6 +49,12 @@ namespace HueRelay
 
         private void Update()
         {
+            bool interactable = button == null || button.IsInteractable();
+            if (opacity != null && lastInteractable != interactable)
+            {
+                opacity.alpha = interactable ? 1 : .4f;
+                lastInteractable = interactable;
+            }
             float t = (Time.unscaledTime - started) / duration;
             if (t > 1 && transform.localScale.x == target)
                 return;

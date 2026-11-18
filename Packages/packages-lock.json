@@ -487,12 +487,6 @@
         "com.unity.modules.subsystems": "1.0.0"
       }
     },
-    "com.unity.playworks.upp": {
-      "version": "file:C:/Users/ivy/Desktop/UnityPackage/7.1.0/scripts",
-      "depth": 0,
-      "source": "local",
-      "dependencies": {}
-    },
     "com.unity.editorcoroutines": {
       "version": "1.0.1",
       "depth": 0,

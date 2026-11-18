@@ -1,6 +1,7 @@
 using System.Collections.Generic;
 using UnityEngine;
 using UnityEngine.UI;
+using UnityEngine.Serialization;
 
 namespace HueRelay
 {
@@ -24,9 +25,6 @@ namespace HueRelay
         public RectTransform head;
         public Button retryButton;
         public Button helpButton;
-        public Button hintButton;
-        public HuePanel hintBadge;
-        public Text hintCount;
         public Text score;
         public Text best;
         public Text levelTitle;
@@ -34,6 +32,26 @@ namespace HueRelay
         public Text moves;
         public RectTransform progressTrack;
         public RectTransform progressFill;
+
+        [Header("Power Ups")]
+        public RectTransform powerUpBar;
+        public Button hintButton;
+        [FormerlySerializedAs("undoButton")] public Button eraseButton;
+        public Button extraMovesButton;
+        public HuePanel hintBadge;
+        public Text hintCount;
+        [FormerlySerializedAs("undoCount")] public Text eraseCount;
+        public Text extraMovesCount;
+
+        [Header("Erase Presentation")]
+        public Text eraseLabel;
+        public Text erasePrompt;
+        public Image eraseCursor;
+        public RawImage eraseDust;
+        [Min(16)] public float eraserSize = 42;
+        [Min(32)] public float eraseDustSize = 96;
+        [Range(0, 1)] public float eraseDustOpacity = 1;
+        public Color eraseDustTint = new Color(.82f, .72f, 1, 1);
 
         [Header("Board")]
         public RectTransform stage;
@@ -77,6 +95,9 @@ namespace HueRelay
         [Min(0)] public float bestTopGap = 4;
         [Min(0)] public float progressHeight = 6;
         [Min(0)] public float backdropBlur = 4;
+        [Min(44)] public float powerUpHeight = 76;
+        [Min(0)] public float powerUpBottomPadding = 12;
+        [Min(0)] public float powerUpBoardGap = 16;
 
         private float layoutWidth = -1;
         private float layoutHeight = -1;
@@ -96,6 +117,7 @@ namespace HueRelay
         private string measuredDetail;
         private float measuredDetailWidth = -1;
         private float resultDetailHeight;
+        private int shownHintCount = -1, shownEraseCount = -1, shownExtraMovesCount = -1;
         private sealed class TextFit
         {
             public string text;
@@ -108,21 +130,86 @@ namespace HueRelay
         /// <summary>启动前验证场景绑定；缺失时由控制器报错，不回退为运行时重新搭建整套 UI。</summary>
         public bool ValidateBindings(out string reason)
         {
+            ResolvePowerUpBindings();
             bool valid = canvas && levelData && canvasMaterial && backdropMaterial && boardSurface && effectsSurface
                 && header && head && retryButton && helpButton && hintButton && hintBadge && hintCount
+                && powerUpBar && eraseButton && extraMovesButton && eraseCount && extraMovesCount
                 && score && best && levelTitle && movesChip && moves && progressTrack && progressFill
                 && stage && boardFrame && boardBackground && comboGroup && combo && milestoneGroup
                 && milestoneNumber && milestoneCaption && finger && tutorialGroup && tutorialText
                 && tutorialNext && tutorialNextText && resultBackdrop && resultGroup && resultTitle
                 && resultScore && resultDetail && resultButtons && resultPrimary && resultPrimaryText
                 && resultSecondary && resultSecondaryText && victoryFlash && effectsSurface.TextCapacity >= 40;
-            reason = valid ? null : "HueView has missing UI, asset or effect text pool references.";
+            reason = null;
+            if (!valid)
+            {
+                var missing = new List<string>();
+                // Only inspect fields on failure; successful startup and editor previews
+                // do not allocate a reflection-based list of every UI reference.
+                foreach (var field in typeof(HueView).GetFields(System.Reflection.BindingFlags.Public | System.Reflection.BindingFlags.Instance))
+                    if (typeof(Object).IsAssignableFrom(field.FieldType) && !(field.GetValue(this) as Object))
+                        missing.Add(field.Name);
+                if (effectsSurface && effectsSurface.TextCapacity < 40)
+                    missing.Add("effectsSurface text pool (" + effectsSurface.TextCapacity + "/40)");
+                reason = "HueView is missing required bindings: " + string.Join(", ", missing.ToArray()) + ".";
+            }
             return valid;
+        }
+
+        /// <summary>
+        /// Recover references to authored item controls after an editor script reload.
+        /// Unity can retain an open scene instance that predates newly serialized fields,
+        /// even though the corresponding GameObjects have already been imported.
+        /// </summary>
+        public void ResolvePowerUpBindings()
+        {
+            if (powerUpBar && hintButton && eraseButton && extraMovesButton && hintBadge && hintCount && eraseCount && extraMovesCount && eraseCursor && eraseDust && erasePrompt && eraseLabel)
+                return;
+            if (!powerUpBar) powerUpBar = transform.Find("PowerUpBar") as RectTransform;
+            if (!powerUpBar) return;
+            var hint = powerUpBar.Find("HintPowerUp");
+            var eraser = powerUpBar.Find("ErasePowerUp");
+            if (!eraser) eraser = powerUpBar.Find("UndoPowerUp");
+            var extra = powerUpBar.Find("ExtraMovesPowerUp");
+            if (hint)
+            {
+                if (!hintButton) hintButton = hint.GetComponent<Button>();
+                var badge = FindItemBadge(hint);
+                if (badge)
+                {
+                    if (!hintBadge) hintBadge = badge.GetComponent<HuePanel>();
+                    if (!hintCount) hintCount = badge.GetComponentInChildren<Text>(true);
+                }
+            }
+            if (eraser)
+            {
+                if (!eraseButton) eraseButton = eraser.GetComponent<Button>();
+                if (!eraseCount) eraseCount = FindItemBadge(eraser)?.GetComponentInChildren<Text>(true);
+            }
+            if (!eraseLabel && eraser) eraseLabel = eraser.Find("Label")?.GetComponent<Text>();
+            if (!erasePrompt) erasePrompt = transform.Find("EraseSelectionPrompt")?.GetComponent<Text>();
+            if (!eraseCursor) eraseCursor = transform.Find("EraseCursor")?.GetComponent<Image>();
+            if (!eraseDust && eraseCursor) eraseDust = eraseCursor.transform.Find("Dust")?.GetComponent<RawImage>();
+            if (extra)
+            {
+                if (!extraMovesButton) extraMovesButton = extra.GetComponent<Button>();
+                if (!extraMovesCount) extraMovesCount = FindItemBadge(extra)?.GetComponentInChildren<Text>(true);
+            }
+        }
+
+        private static Transform FindItemBadge(Transform item)
+        {
+            // Labels are Text children; the inventory badge is the child HuePanel
+            // containing a Text, independent of the scene object's display language.
+            foreach (Transform child in item)
+                if (child.GetComponent<HuePanel>() && child.GetComponentInChildren<Text>(true))
+                    return child;
+            return null;
         }
 
         /// <summary>仅在分辨率、教学头部或关卡尺寸变化时重排容器，保留子节点在场景中的布局。</summary>
         public void ApplyLayout(float width, float height, float scale, float appX, float appWidth,
-            float top, float stageY, float stageHeight, float boardX, float boardY, float boardWidth,
+            float top, float bottom, float stageY, float stageHeight, float boardX, float boardY, float boardWidth,
             float boardHeight, bool teaching, float physicalScale)
         {
             if (layoutWidth == width && layoutHeight == height && layoutScale == scale && layoutStageY == stageY
@@ -148,6 +235,18 @@ namespace HueRelay
             head.anchoredPosition = new Vector2(head.anchoredPosition.x, -(toolbarHeight + sectionGap));
             SetBox(progressTrack, new Rect(0, toolbarHeight + sectionGap + headHeight + sectionGap, headerWidth, progressHeight));
             SetBox(stage, new Rect(appX + sidePadding * scale, stageY, appWidth - sidePadding * 2 * scale, stageHeight));
+            float barWidth = appWidth / scale - sidePadding * 2;
+            SetBox(powerUpBar, new Rect(appX + sidePadding * scale, PowerUpTop(height, scale, bottom), barWidth, powerUpHeight));
+            powerUpBar.localScale = Vector3.one * scale;
+            PlacePowerUp(hintButton, 0, barWidth);
+            PlacePowerUp(eraseButton, 1, barWidth);
+            PlacePowerUp(extraMovesButton, 2, barWidth);
+            if (erasePrompt)
+            {
+                SetBox(erasePrompt.rectTransform, new Rect(appX + sidePadding * scale,
+                    PowerUpTop(height, scale, bottom) - 24 * scale, barWidth, 22));
+                erasePrompt.transform.localScale = Vector3.one * scale;
+            }
             PlaceCenter(boardFrame, new Vector2(boardX + boardWidth * .5f, boardY + boardHeight * .5f),
                 new Vector2(boardWidth + 16 * scale, boardHeight + 16 * scale));
             boardBackground.SetMetrics(28 * scale, 30 * scale, 10 * scale, -4 * scale);
@@ -167,8 +266,8 @@ namespace HueRelay
 
         /// <summary>更新既有 HUD 节点；不再每帧生成固定背景、按钮和标签网格。</summary>
         public void SetHud(string scoreValue, Color scoreColor, float scoreScale, float scoreWidth,
-            string bestValue, string titleValue, string movesValue, Color movesColor, string hintsValue,
-            bool badgeVisible, float fill, bool teaching, float movesWidth)
+            string bestValue, string titleValue, string movesValue, Color movesColor,
+            float fill, bool teaching, float movesWidth)
         {
             score.text = scoreValue;
             score.color = scoreColor;
@@ -185,11 +284,67 @@ namespace HueRelay
             moves.color = movesColor;
             movesChip.rectTransform.SetSizeWithCurrentAnchors(RectTransform.Axis.Horizontal, movesWidth);
             FitLabel(moves, movesWidth - 20, 15);
-            hintCount.text = hintsValue;
-            SetActive(hintBadge.gameObject, badgeVisible);
             Vector2 maximum = progressFill.anchorMax;
             maximum.x = Mathf.Clamp01(fill);
             progressFill.anchorMax = maximum;
+        }
+
+        public float PowerUpTop(float height, float scale, float bottom)
+        {
+            return height - bottom - (powerUpHeight + powerUpBottomPadding) * scale;
+        }
+
+        private static void PlacePowerUp(Button button, int index, float width)
+        {
+            SetBox((RectTransform)button.transform, new Rect((index + .5f) * width / 3 - 42, 2, 84, 72));
+        }
+
+        public void HideErasePresentation()
+        {
+            if (eraseCursor) SetActive(eraseCursor.gameObject, false);
+            if (erasePrompt) SetActive(erasePrompt.gameObject, false);
+        }
+
+        public void SetErasePresentation(bool selecting, bool erasing, Vector2 position, float progress, float scale)
+        {
+            if ((selecting || erasing) && (!eraseCursor || !erasePrompt || !eraseDust || !eraseLabel))
+                ResolvePowerUpBindings();
+            if (erasePrompt) SetActive(erasePrompt.gameObject, selecting);
+            if (!eraseCursor) return;
+            SetActive(eraseCursor.gameObject, erasing);
+            if (!erasing) return;
+            var rect = eraseCursor.rectTransform;
+            Vector2 size = Vector2.one * eraserSize;
+            if (rect.sizeDelta != size) rect.sizeDelta = size;
+            float tipOffset = eraserSize * .25f;
+            rect.anchoredPosition = new Vector2(position.x + tipOffset * scale, -position.y + tipOffset * scale);
+            rect.localScale = Vector3.one * scale;
+            rect.localRotation = Quaternion.Euler(0, 0, Mathf.Sin(progress * 36) * 9);
+            float alpha = Mathf.Clamp01(progress * 12) * Mathf.Clamp01((1 - progress) * 10);
+            eraseCursor.color = new Color(1, 1, 1, alpha);
+            if (eraseDust)
+            {
+                var dustRect = eraseDust.rectTransform;
+                Vector2 dustSize = Vector2.one * eraseDustSize;
+                if (dustRect.sizeDelta != dustSize) dustRect.sizeDelta = dustSize;
+                dustRect.anchoredPosition = new Vector2(-tipOffset, -tipOffset);
+                int frame = Mathf.Min(7, Mathf.FloorToInt(progress * 8));
+                eraseDust.uvRect = new Rect((frame % 4) * .25f, 1 - (frame / 4 + 1) * .5f, .25f, .5f);
+                Color tint = eraseDustTint;
+                tint.a *= alpha * eraseDustOpacity;
+                eraseDust.color = tint;
+            }
+        }
+
+        public void SetPowerUps(int hints, int erasers, int extraMoves, bool canHint, bool canErase, bool canAddMoves, bool choosingErase)
+        {
+            if (shownHintCount != hints) { shownHintCount = hints; hintCount.text = hints.ToString(); }
+            if (shownEraseCount != erasers) { shownEraseCount = erasers; eraseCount.text = erasers.ToString(); }
+            if (shownExtraMovesCount != extraMoves) { shownExtraMovesCount = extraMoves; extraMovesCount.text = extraMoves.ToString(); }
+            hintButton.interactable = canHint;
+            eraseButton.interactable = canErase;
+            extraMovesButton.interactable = canAddMoves;
+            if (eraseLabel) eraseLabel.text = choosingErase ? "Cancel" : "Erase";
         }
 
         /// <summary>把已存在的浮层放到原 HTML 的绝对位置，并同步透明度和缩放。</summary>
@@ -351,6 +506,7 @@ namespace HueRelay
             SetActive(comboGroup.gameObject, false);
             SetActive(milestoneGroup.gameObject, false);
             SetActive(finger.gameObject, false);
+            HideErasePresentation();
             victoryFlash.color = new Color(1, 1, 1, 0);
         }
 
@@ -358,15 +514,14 @@ namespace HueRelay
         public bool BlocksBoardPointer(Vector2 logicalPosition, float physicalScale)
         {
             Vector2 screen = new Vector2(logicalPosition.x * physicalScale, Screen.height - logicalPosition.y * physicalScale);
-            if (UIManager.Instance != null && UIManager.Instance.BlocksGameplay)
+            if (RectTransformUtility.RectangleContainsScreenPoint(powerUpBar, screen))
                 return true;
             if (resultGroup.gameObject.activeSelf)
                 return true;
             if (tutorialGroup.gameObject.activeSelf && RectTransformUtility.RectangleContainsScreenPoint((RectTransform)tutorialGroup.transform, screen))
                 return true;
             return RectTransformUtility.RectangleContainsScreenPoint(retryButton.transform as RectTransform, screen)
-                || RectTransformUtility.RectangleContainsScreenPoint(helpButton.transform as RectTransform, screen)
-                || RectTransformUtility.RectangleContainsScreenPoint(hintButton.transform as RectTransform, screen);
+                || RectTransformUtility.RectangleContainsScreenPoint(helpButton.transform as RectTransform, screen);
         }
 
         private void OnEnable()
@@ -389,9 +544,9 @@ namespace HueRelay
             float scale = Mathf.Clamp(Mathf.Min(width / 390, height / 800), .75f, 3.5f);
             float appWidth = Mathf.Min(width, 460 * scale);
             float stageY = (topPadding + toolbarHeight + sectionGap + scoreLineHeight + bestTopGap + bestLineHeight + sectionGap + progressHeight) * scale;
-            float stageHeight = height + 12 * scale - stageY;
-            float cell = Mathf.Max(16, Mathf.Min(64 * scale, Mathf.Floor((appWidth - 60 * scale) / 5), Mathf.Floor((stageHeight - 32 * scale) / 6)));
-            ApplyLayout(width, height, scale, (width - appWidth) * .5f, appWidth, 0, stageY, stageHeight,
+            float stageHeight = Mathf.Max(1, PowerUpTop(height, scale, 0) - powerUpBoardGap * scale - stageY);
+            float cell = Mathf.Max(1, Mathf.Min(64 * scale, Mathf.Floor((appWidth - 60 * scale) / 5), Mathf.Floor((stageHeight - 48 * scale) / 6)));
+            ApplyLayout(width, height, scale, (width - appWidth) * .5f, appWidth, 0, 0, stageY, stageHeight,
                 width * .5f - cell * 2.5f, stageY + (stageHeight - cell * 6) * .5f, cell * 5, cell * 6, false, canvas.scaleFactor);
         }
 

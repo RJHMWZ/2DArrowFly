@@ -74,8 +74,9 @@ namespace HueRelay
         /// </summary>
         public void StartTutorial()
         {
-            if (busy || flies.Count > 0 || bumps.Count > 0)
+            if (!Idle)
                 return;
+            CancelErase();
             var sn = Over ? null : new Snapshot
             {
                 p = P,

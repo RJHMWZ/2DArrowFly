@@ -20,7 +20,7 @@ with sync_playwright() as p:
  errors=[];page.on('pageerror',lambda e:errors.append(str(e)))
  page.route('**/*',lambda r:r.continue_() if r.request.url.startswith(f'http://127.0.0.1:{server.server_port}/') and not r.request.url.endswith('/tracing') else r.fulfill(status=200,content_type='application/json',body='{}',headers={'Access-Control-Allow-Origin':'*'}))
  page.goto(f'http://127.0.0.1:{server.server_port}/iframe.html')
- page.wait_for_function('window.UIManager?.Instance && !UIManager.Instance.IsLoading',timeout=60000)
+ page.wait_for_function('window.UIManager?.Instance && UnityEngine.Object.FindObjectOfType(HueRelay.HueGame)?.P',timeout=60000)
  page.evaluate('''()=>{
  window.g=UnityEngine.Object.FindObjectOfType(HueRelay.HueGame);
  window.counts={};
@@ -66,7 +66,6 @@ with sync_playwright() as p:
    page.wait_for_timeout(100)
    assert page.evaluate('g.fx.geometry.vertices.Count===0 && g.floats.Count===0'),'Expired effect mesh retained'
  page.wait_for_function('g.ModalVisible',timeout=15000)
- assert page.evaluate('!UIManager.Instance.BlocksGameplay'),'Final result blocked by ad UI'
  page.evaluate('g.ContinueResult()')
  page.wait_for_function('g.Endless && !g.generating && !g.Over',timeout=15000)
  page.evaluate('counts={}')

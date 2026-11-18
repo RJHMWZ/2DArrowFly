@@ -11,7 +11,6 @@ namespace HueRelay
         private int drawnTaps = -1;
         private int drawnLimit = -1;
         private int drawnBest = -1;
-        private int drawnHints = -1;
         private int drawnChain = -1;
         private int drawnLevel = -2;
         private int drawnTut = -2;
@@ -20,7 +19,6 @@ namespace HueRelay
         private string scoreText;
         private string movesText;
         private string bestText;
-        private string hintsText;
         private string chainText;
         private string titleText;
         private string resultTitle;
@@ -54,7 +52,7 @@ namespace HueRelay
                 shake = new Vector2(Mathf.Sin(st * 70), Mathf.Cos(st * 55) * .6f) * shakeAmplitude * k * K;
             }
             Vector2 origin = new Vector2(ox, oy) + shake + new Vector2(P.L.w * cs, P.L.h * cs) * .5f * (1 - ps);
-            bool dynamicBoard = ripples.Count > 0 || flies.Count > 0 || bumps.Count > 0 || charged.Count > 0
+            bool dynamicBoard = IsErasing || ripples.Count > 0 || flies.Count > 0 || bumps.Count > 0 || charged.Count > 0
                 || hintId >= 0 || now - built < P.n * .026f + .42f;
             // Rebuild once after the last animation, then retain the settled mesh.
             if (dynamicBoard || boardWasDynamic || renderedPuzzle != P || renderedMask != Mask
@@ -85,6 +83,10 @@ namespace HueRelay
                 fx.End();
             }
             effectsWereVisible = effectsVisible;
+            Vector2 erasePosition = IsErasing
+                ? origin + G(At(P.arrs[erasingArrow], EraseProgress * (P.arrs[erasingArrow].cells.Length - 1))) * ps
+                : Vector2.zero;
+            sceneView.SetErasePresentation(IsChoosingErase, IsErasing, erasePosition, EraseProgress, K);
             RenderCombo();
             RenderTutorial();
             RenderSheet();
@@ -98,11 +100,6 @@ namespace HueRelay
         /// </summary>
         private void RenderChrome()
         {
-            if (hints != drawnHints)
-            {
-                drawnHints = hints;
-                hintsText = hints.ToString();
-            }
             float scoreT = (now - scorePop) / .38f;
             float scoreScale = 1;
             Color scoreColor = Ink;
@@ -140,8 +137,9 @@ namespace HueRelay
                 movesText = "Moves " + Taps + "/" + Limit;
             }
             sceneView.SetHud(scoreText, scoreColor, scoreScale, scoreW / K, bestText, titleText,
-                chipOverride ?? movesText, Limit - Taps <= 2 ? Orange : Ink, hintsText, hints > 0,
+                chipOverride ?? movesText, Limit - Taps <= 2 ? Orange : Ink,
                 progress, tut >= 0, chipRect.width / K);
+            sceneView.SetPowerUps(hints, eraseUses, extraMoveUses, CanHint, CanErase, CanAddMoves, IsChoosingErase);
         }
 
         /// <summary>
@@ -232,6 +230,13 @@ namespace HueRelay
             {
                 if ((Mask & (1 << a.id)) == 0)
                     continue;
+                if (a.id == erasingArrow)
+                {
+                    float p = EraseProgress;
+                    Path(board, a, p * (a.cells.Length - 1), a.cells.Length - 1,
+                        HueSurface.Alpha(Col(a.c), 1 - p * .25f), .14f, Mathf.Clamp01((1 - p) * 5));
+                    continue;
+                }
                 int bump = -1;
                 for (int i = 0; i < bumps.Count; i++)
                     if (bumps[i].id == a.id)

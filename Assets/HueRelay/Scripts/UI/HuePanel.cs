@@ -12,7 +12,7 @@ namespace HueRelay
     {
         public enum Shape
         {
-            RoundedRectangle, Disc, RetryIcon, HintIcon
+            RoundedRectangle, Disc
         }
 
         [Header("Shape")]
@@ -37,32 +37,16 @@ namespace HueRelay
             Rect bounds = rectTransform.rect;
             geometry.origin = new Vector2(bounds.xMin, -bounds.yMax);
             Rect box = new Rect(0, 0, bounds.width, bounds.height);
-            Vector2 center = box.center;
 
-            if (shape == Shape.RetryIcon)
+            float corner = shape == Shape.Disc ? Mathf.Min(box.width, box.height) * .5f : radius;
+            if (castShadow)
             {
-                geometry.Arc(center, 8, Mathf.PI, Mathf.Atan2(-6.2f, -5), 2.4f, color);
-                geometry.Stroke(center + new Vector2(-8, -8), center + new Vector2(-8, -3), 2.4f, color);
-                geometry.Stroke(center + new Vector2(-8, -3), center + new Vector2(-3, -3), 2.4f, color);
+                Rect shadow = Expand(box, shadowSpread);
+                geometry.Shadow(shadow, Mathf.Max(0, corner + shadowSpread), shadowBlur, shadowOffset, shadowOpacity);
             }
-            else if (shape == Shape.HintIcon)
-            {
-                geometry.Disc(center + new Vector2(0, -3), 7, color);
-                geometry.RoundRect(new Rect(center.x - 4, center.y + 2, 8, 4), 1, color);
-                geometry.RoundRect(new Rect(center.x - 3, center.y + 8, 6, 2), .5f, color);
-            }
-            else
-            {
-                float corner = shape == Shape.Disc ? Mathf.Min(box.width, box.height) * .5f : radius;
-                if (castShadow)
-                {
-                    Rect shadow = Expand(box, shadowSpread);
-                    geometry.Shadow(shadow, Mathf.Max(0, corner + shadowSpread), shadowBlur, shadowOffset, shadowOpacity);
-                }
-                if (borderWidth > 0)
-                    geometry.RoundRect(Expand(box, borderWidth), corner + borderWidth, borderColor);
-                geometry.RoundRect(box, corner, color);
-            }
+            if (borderWidth > 0)
+                geometry.RoundRect(Expand(box, borderWidth), corner + borderWidth, borderColor);
+            geometry.RoundRect(box, corner, color);
             geometry.Populate(vh);
         }
 

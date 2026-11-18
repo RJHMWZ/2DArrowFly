@@ -35,9 +35,28 @@ $manifest = Get-Content -LiteralPath $manifestPath -Raw | ConvertFrom-Json
 $manifest.dependencies.PSObject.Properties.Remove('com.coplaydev.unity-mcp')
 $manifest | ConvertTo-Json -Depth 10 | Set-Content -LiteralPath $manifestPath -Encoding UTF8
 $logPath = Join-Path $projectPath 'Logs\MiniGameValidation\unity-validation.log'
+# Reports from an older run must never be presented as this run's result.
+$reportDirectory = Join-Path $validationPath 'Logs\MiniGameValidation'
+foreach ($reportName in @('validation.txt', 'playmode.txt', 'dependencies.txt')) {
+    $previousReport = Join-Path $reportDirectory $reportName
+    if (Test-Path -LiteralPath $previousReport) { Remove-Item -LiteralPath $previousReport }
+}
 $arguments = @('-batchmode', '-nographics', '-projectPath', ('"' + $validationPath + '"'), '-executeMethod', 'HueRelay.Editor.HueMiniGameTools.BatchValidate', '-logFile', ('"' + $logPath + '"'))
 $process = Start-Process -FilePath $UnityEditorPath -ArgumentList $arguments -WindowStyle Hidden -PassThru
 $process.WaitForExit()
+if ($process.ExitCode -ne 0) {
+    if (Test-Path -LiteralPath $logPath) {
+        Select-String -LiteralPath $logPath -Pattern 'error CS|Exception:|Aborting batchmode' |
+            Select-Object -First 20 | ForEach-Object { $_.Line }
+    }
+    Write-Error ('Unity validation failed. See ' + $logPath) -ErrorAction Continue
+    exit $process.ExitCode
+}
+foreach ($requiredReport in @('validation.txt', 'playmode.txt')) {
+    if (-not (Test-Path -LiteralPath (Join-Path $reportDirectory $requiredReport))) {
+        throw ('Unity exited without producing the required report: ' + $requiredReport)
+    }
+}
 foreach ($file in @('validation.txt', 'playmode.txt', 'dependencies.txt')) {
     $report = Join-Path $validationPath ('Logs\MiniGameValidation\' + $file)
     if (Test-Path -LiteralPath $report) {

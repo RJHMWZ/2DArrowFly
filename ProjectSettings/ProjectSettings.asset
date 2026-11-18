@@ -797,7 +797,7 @@ PlayerSettings:
   webGLMemoryGeometricGrowthCap: 96
   webGLPowerPreference: 2
   scriptingDefineSymbols:
-    WebGL: 
+    WebGL: IVY_SDK_TT;GRAVITY_BYTEDANCE_TT_GAME_MODE
   additionalCompilerArguments: {}
   platformArchitecture: {}
   scriptingBackend:

@@ -25,7 +25,7 @@ with sync_playwright() as p:
     entry='iframe.html' if (package/'iframe.html').exists() else 'index.html'
     page.goto(f'http://127.0.0.1:{server.server_port}/{entry}')
     if entry=='index.html':page.evaluate("window.postMessage(JSON.stringify({name:'setPlaygroundAssetOverrides',data:'{}'}),'*')")
-    page.wait_for_function('window.UIManager?.Instance && !UIManager.Instance.IsLoading',timeout=60000)
+    page.wait_for_function('window.UIManager?.Instance && UnityEngine.Object.FindObjectOfType(HueRelay.HueGame)?.P',timeout=60000)
     page.evaluate('''()=>{window.g=UnityEngine.Object.FindObjectOfType(HueRelay.HueGame);g.StartLevel(3)}''')
     page.wait_for_timeout(1600)
     data=page.evaluate('''async()=>{

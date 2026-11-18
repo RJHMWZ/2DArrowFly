@@ -17,6 +17,7 @@ namespace HueRelay
                 return false;
             }
             root = sceneView.canvas;
+            rootScaler = root.GetComponent<CanvasScaler>();
             board = sceneView.boardSurface;
             fx = sceneView.effectsSurface;
             finger = sceneView.finger;
@@ -29,9 +30,14 @@ namespace HueRelay
         /// </summary>
         private void Layout()
         {
-            pixelScale = Screen.width > Screen.height ? Screen.height / 800f : Screen.width / 390f;
-            viewWidth = Screen.width / pixelScale;
-            viewHeight = Screen.height / pixelScale;
+            LayoutViewport(Screen.width, Screen.height, Screen.safeArea);
+        }
+
+        private void LayoutViewport(float width, float height, Rect safeArea)
+        {
+            pixelScale = width > height ? height / 800f : width / 390f;
+            viewWidth = width / pixelScale;
+            viewHeight = height / pixelScale;
 #if UNITY_ANDROID && !UNITY_EDITOR
             if (deviceDensity <= 0)
             {
@@ -52,12 +58,13 @@ namespace HueRelay
             }
 
             pixelScale = deviceDensity;
-            viewWidth = Screen.width / pixelScale;
-            viewHeight = Screen.height / pixelScale;
+            viewWidth = width / pixelScale;
+            viewHeight = height / pixelScale;
 #endif
-            root.GetComponent<CanvasScaler>().scaleFactor = pixelScale;
-            safeTop = (Screen.height - Screen.safeArea.yMax) / pixelScale;
-            safeBottom = Screen.safeArea.yMin / pixelScale;
+            if (!rootScaler) rootScaler = root.GetComponent<CanvasScaler>();
+            rootScaler.scaleFactor = pixelScale;
+            safeTop = (height - safeArea.yMax) / pixelScale;
+            safeBottom = safeArea.yMin / pixelScale;
             K = Mathf.Clamp(Mathf.Min(viewWidth / 390, viewHeight / 800), .75f, 3.5f);
             appW = Mathf.Min(viewWidth, 460 * K);
             appX = (viewWidth - appW) * .5f;
@@ -65,15 +72,15 @@ namespace HueRelay
             float headY = safeTop + (sceneView.topPadding + sceneView.toolbarHeight + sceneView.sectionGap) * K;
             float headHeight = (sceneView.scoreLineHeight + sceneView.bestTopGap + (tut >= 0 ? 0 : sceneView.bestLineHeight)) * K;
             stageY = headY + headHeight + sceneView.sectionGap * K + sceneView.progressHeight * K;
-            // 原页面的 800px 内容高度之外还包含上下各 12px 内边距，此处保留该实际布局。
-            stageH = viewHeight + 12 * K - safeBottom - stageY;
-            cs = Mathf.Max(16, Mathf.Min(64 * K, Mathf.Floor((appW - sceneView.sidePadding * 2 * K - 32 * K) / P.L.w), Mathf.Floor((stageH - 32 * K) / P.L.h)));
+            // Keep the entire board above the item bar and the device's bottom safe area.
+            stageH = Mathf.Max(1, sceneView.PowerUpTop(viewHeight, K, safeBottom) - sceneView.powerUpBoardGap * K - stageY);
+            cs = Mathf.Max(1, Mathf.Min(64 * K, Mathf.Floor((appW - sceneView.sidePadding * 2 * K - 32 * K) / P.L.w), Mathf.Floor((stageH - 48 * K) / P.L.h)));
             ox = appX + appW * .5f - P.L.w * cs * .5f;
             oy = stageY + (stageH - P.L.h * cs) * .5f;
             scoreRect = new Rect(appX + 18 * K, headY, (scoreText == null ? 1 : scoreText.Length) * 24.376f * K, 41.8f * K);
             float chipW = (112 + (Taps >= 10 ? 9.25f : 0) + (Limit >= 10 ? 9.25f : 0)) * K;
             chipRect = new Rect(appX + appW - 18 * K - chipW, headY + headHeight - 42 * K, chipW, 38 * K);
-            sceneView.ApplyLayout(viewWidth, viewHeight, K, appX, appW, safeTop, stageY, stageH,
+            sceneView.ApplyLayout(viewWidth, viewHeight, K, appX, appW, safeTop, safeBottom, stageY, stageH,
                 ox, oy, P.L.w * cs, P.L.h * cs, tut >= 0, pixelScale);
         }
     }

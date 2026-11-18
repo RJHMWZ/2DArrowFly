@@ -245,6 +245,9 @@ namespace HueRelay
 
 
         private Canvas root;
+        private CanvasScaler rootScaler;
+        private static readonly double[] ChordRatios = { 1, 1.26, 1.5, 2 };
+        private static readonly int[] VictoryNotes = { 0, 4, 7, 12, 16 };
 
         /// <summary>
         /// 本帧非缩放时间，单位为秒。
@@ -330,7 +333,7 @@ namespace HueRelay
         {
             get
             {
-                return !busy && flies.Count == 0 && bumps.Count == 0;
+                return !busy && flies.Count == 0 && bumps.Count == 0 && !IsErasing;
             }
         }
 
@@ -374,6 +377,7 @@ namespace HueRelay
             P = Prep(levels[LevelIndex]);
             par = Best(P, P.Full, new HueRandom(7), 300).taps;
             Limit = par + Slack[LevelIndex];
+            baseMoveLimit = Limit;
             bestScore = PlayerPrefs.GetInt("cc_b" + LevelIndex, 0);
             ResetGame();
         }
@@ -398,6 +402,7 @@ namespace HueRelay
                 P = Prep(L);
                 par = metrics.par;
                 Limit = par + 2;
+                baseMoveLimit = Limit;
                 ResetGame();
             }));
         }
@@ -442,6 +447,7 @@ namespace HueRelay
             P = Prep(Gen(seed, P == null ? 9 : P.L.w, P == null ? 12 : P.L.h));
             par = c.taps;
             Limit = par + 2;
+            baseMoveLimit = Limit;
             ResetGame();
         }
 
@@ -459,6 +465,10 @@ namespace HueRelay
             Taps = Score = 0;
             ds = 0;
             hints = 3;
+            eraseUses = 3;
+            extraMoveUses = 1;
+            Limit = baseMoveLimit;
+            CancelErase();
             q.Clear();
             auto.Clear();
             charged.Clear();
@@ -513,7 +523,7 @@ namespace HueRelay
         /// </summary>
         public void Hint()
         {
-            if (generating || hints < 1 || busy || Over || tut >= 0)
+            if (!CanHint)
                 return;
             var b = Best(P, Mask, hintRandom, 300);
             if (b.first < 0)
@@ -522,6 +532,7 @@ namespace HueRelay
             hintId = b.first;
             hintAt = now;
             audioBus.Tone(660, .14, .08);
+            Render();
         }
 
         /// <summary>
@@ -552,13 +563,7 @@ namespace HueRelay
                 Spawn(new Vector2(P.L.w * cs / 2, P.L.h * cs / 2), mileColor, 5, Vector2.down);
                 for (int k = 0; k < 4; k++)
                 {
-                    double ratio = new[]
-                    {
-                        1,
-                        1.26,
-                        1.5,
-                        2
-                    }[k];
+                    double ratio = ChordRatios[k];
                     After(k * .07f, () => audioBus.Tone(392 * ratio, .7, .05));
                 }
             }
@@ -590,12 +595,7 @@ namespace HueRelay
                     double b = HueAudio.Ending(chainN);
                     for (int k = 0; k < 3; k++)
                     {
-                        double mul = new[]
-                        {
-                            1,
-                            1.26,
-                            1.5
-                        }[k];
+                        double mul = ChordRatios[k];
                         After(.32f + k * .06f, () => audioBus.Tone(b * mul, .9, .045));
                     }
                 }
@@ -621,8 +621,11 @@ namespace HueRelay
         /// <param name="bi">命中的箭头编号。</param>
         public void TapArrow(int bi)
         {
-            if (UIManager.Instance != null && UIManager.Instance.BlocksGameplay)
+            if (IsChoosingErase)
+            {
+                SelectEraseArrow(bi);
                 return;
+            }
             if (bi < 0 || bi >= P.n || (Mask & (1 << bi)) == 0 || Over || (busy && tut >= 0) || now - built < P.n * .026f + .3f || (tut < 0 && Taps >= Limit))
                 return;
             if (tut >= 0)
@@ -642,6 +645,8 @@ namespace HueRelay
             }
 
             if (q.Contains(bi) || bumps.Exists(b => b.id == bi))
+                return;
+            if (!Idle)
                 return;
             hintId = -1;
             Taps++;
@@ -757,17 +762,9 @@ namespace HueRelay
             chipOverride = "Left " + remaining;
             HueAudio.Vibrate(20, 30, 60);
             int tier = remaining >= 2 ? 3 : remaining == 1 ? 2 : 1;
-            int[] notes =
-            {
-                0,
-                4,
-                7,
-                12,
-                16
-            };
             for (int i = 0; i < tier + 2; i++)
             {
-                double f = 392 * Math.Pow(2, notes[i] / 12.0);
+                double f = 392 * Math.Pow(2, VictoryNotes[i] / 12.0);
                 After(i * .13f, () =>
                 {
                     audioBus.Tone(f, .7, .09);
@@ -825,8 +822,6 @@ namespace HueRelay
         {
             now = Time.unscaledTime;
             dt = Mathf.Min(.05f, Time.unscaledDeltaTime);
-            if (UIManager.Instance != null && UIManager.Instance.BlocksGameplay)
-                return;
             Layout();
             // 先移除再执行；即使回调触发重置，旧任务也不会在随后再次执行。
             for (int i = 0; i < timed.Count;)
@@ -878,8 +873,9 @@ namespace HueRelay
 
             }
 
+            UpdateErase();
             UpdateEffects();
-            if (!Over && !busy && flies.Count == 0 && bumps.Count == 0 && tut < 0 && (Mask == 0 || Taps >= Limit))
+            if (!Over && Idle && !IsChoosingErase && tut < 0 && (Mask == 0 || Taps >= Limit))
             {
                 if (finishAt < 0)
                     finishAt = now;
