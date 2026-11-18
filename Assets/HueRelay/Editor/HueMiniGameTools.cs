@@ -110,6 +110,9 @@ namespace HueRelay.Editor
         static bool waitingForEndless;
         static double endlessStartedAt;
         static int itemPhase;
+        static int overlapPhase;
+        static double overlapStarted;
+        static bool overlapFinished;
         static int originalMask, originalLimit;
         static double itemStarted;
         static bool winCheckStarted, winCheckFinished, sawWinSettling;
@@ -142,6 +145,11 @@ namespace HueRelay.Editor
                 var currentView = UnityEngine.Object.FindObjectOfType<HueView>();
                 if (!game.enabled || !currentView.ValidateBindings(out var bindingReason))
                     throw new Exception("Reloaded scene did not recover its required references.");
+                if (!overlapFinished)
+                {
+                    CheckOverlappingTaps(game);
+                    return;
+                }
                 if (itemPhase < 6)
                 {
                     CheckPowerUps(game);
@@ -188,6 +196,67 @@ namespace HueRelay.Editor
         }
 
         static FieldInfo Field(string name) => typeof(HueGame).GetField(name, BindingFlags.Instance | BindingFlags.NonPublic);
+
+        static void CheckOverlappingTaps(HueGame game)
+        {
+            if (overlapPhase == 0)
+            {
+                game.StartLevel(0);
+                typeof(HueGame).GetProperty("P").SetValue(game, HueEngine.Prep(new LevelData(5, 6, new[] {
+                    new ArrowData("B", "r", new[] { new Cell(3, 1), new Cell(4, 1) }),
+                    new ArrowData("B", "r", new[] { new Cell(0, 1), new Cell(1, 1) }),
+                    new ArrowData("C", "u", new[] { new Cell(2, 5), new Cell(2, 4) }),
+                    new ArrowData("A", "r", new[] { new Cell(0, 3), new Cell(1, 3) })
+                })));
+                game.ResetGame();
+                Field("built").SetValue(game, Time.unscaledTime - 10);
+                game.TapArrow(0);
+                if (!(bool)Field("busy").GetValue(game)) throw new Exception("Overlap fixture did not start an automatic chain.");
+                int pendingMask = game.Mask;
+                game.TapArrow(1); // Queued for automatic launch; never spend a manual move here.
+                if (game.Taps != 1 || game.Mask != pendingMask) throw new Exception("A queued arrow accepted a duplicate manual tap.");
+                game.TapArrow(2); // An independent arrow must launch before the pending chain advances.
+                if (game.Taps != 2 || game.Mask != 10 || game.Idle)
+                    throw new Exception("An automatic chain blocked an independent manual tap.");
+                game.TapArrow(2);
+                game.ToggleErase();
+                if (game.Taps != 2 || game.IsChoosingErase) throw new Exception("Duplicate input or an eraser interrupted an active chain.");
+                overlapStarted = EditorApplication.timeSinceStartup;
+                overlapPhase = 1;
+                return;
+            }
+            if (EditorApplication.timeSinceStartup - overlapStarted > 15) throw new Exception("Concurrent arrow animations did not settle.");
+            if (!game.Idle) return;
+            if (overlapPhase == 1)
+            {
+                if (game.Mask != 8 || game.Taps != 2) throw new Exception("The original automatic chain was lost or charged an extra move.");
+                game.ResetGame();
+                Field("built").SetValue(game, Time.unscaledTime - 10);
+                game.TapArrow(2);
+                if ((bool)Field("busy").GetValue(game) || game.Idle) throw new Exception("Flight-only fixture was not active.");
+                game.TapArrow(3);
+                game.TapArrow(3);
+                if (game.Mask != 3 || game.Taps != 2) throw new Exception("A flying arrow blocked another manual tap or allowed a duplicate.");
+                overlapStarted = EditorApplication.timeSinceStartup;
+                overlapPhase = 2;
+                return;
+            }
+            if (overlapPhase == 2)
+            {
+                if (game.Mask != 3 || game.Taps != 2) throw new Exception("Concurrent manual flights changed the wrong arrows.");
+                game.ResetGame();
+                Field("built").SetValue(game, Time.unscaledTime - 10);
+                game.TapArrow(1); // Blocked: it animates a collision instead of launching.
+                game.TapArrow(2);
+                game.TapArrow(1);
+                if (game.Mask != 11 || game.Taps != 2) throw new Exception("A bump blocked another arrow or accepted a repeated tap.");
+                overlapStarted = EditorApplication.timeSinceStartup;
+                overlapPhase = 3;
+                return;
+            }
+            if (game.Mask != 11 || game.Taps != 2) throw new Exception("Concurrent bump/flight did not finish consistently.");
+            overlapFinished = true;
+        }
 
         static void CheckWinTransition(HueGame game, HueView view)
         {
@@ -367,7 +436,7 @@ namespace HueRelay.Editor
         static void Finish()
         {
             File.WriteAllLines(HueMiniGameTools.ReportDirectory + "/playmode.txt", errors.Count == 0
-                ? new[] { "PASS: scene reload with missing item references, immediate startup, hint, erase selection/cancel, blocked targets, animated removal, no chain/score/move cost, item limits, retry cancellation, failure rescue, tutorial isolation, eraser last-arrow victory, 25 responsive layouts, victory item lock through settling/bonus/result, win advance, endless continuation and input" } : errors);
+                ? new[] { "PASS: scene reload with missing item references, immediate startup, concurrent taps during chains/flights/bumps, queued/duplicate tap protection, hint, erase selection/cancel, blocked targets, animated removal, no chain/score/move cost, item limits, retry cancellation, failure rescue, tutorial isolation, eraser last-arrow victory, 25 responsive layouts, victory item lock through settling/bonus/result, win advance, endless continuation and input" } : errors);
             SessionState.SetBool(HueMiniGameTools.ValidationKey, false);
             Application.logMessageReceived -= OnLog;
             EditorApplication.update -= Tick;

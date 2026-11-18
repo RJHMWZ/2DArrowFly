@@ -646,7 +646,9 @@ namespace HueRelay
 
             if (q.Contains(bi) || bumps.Exists(b => b.id == bi))
                 return;
-            if (!Idle)
+            // Other manual taps may overlap flights, bumps and automatic chains.
+            // Only the targeted eraser animation owns exclusive board input.
+            if (IsErasing)
                 return;
             hintId = -1;
             Taps++;
