@@ -14,7 +14,7 @@ MonoBehaviour:
   m_EditorClassIdentifier: 
   tag: 0
   wasmResourceUrl: 
-  OutputDir: 
+  OutputDir: D:\workspace\2DArrowFly\tt-minigame
   useByteAudioAPI: 0
   wasmMemorySize: 128
   isWebGL2: 0
@@ -52,12 +52,12 @@ MonoBehaviour:
   NativeWhiteListRegex:
   - com.bytedance.starksdk
   - _Backup~
-  _appId: 
+  _appId: ArrowTest
   version: 
   autoVersion: 0
-  _webglPackagePath: 
+  _webglPackagePath: D:\workspace\2DArrowFly\tt-minigame\tt-minigame
   _orientation: 0
-  _iOSPerformancePlus: 0
+  _iOSPerformancePlus: 1
   _menuButtonStyle: 0
   _publishType: 0
   publishDesc: 
