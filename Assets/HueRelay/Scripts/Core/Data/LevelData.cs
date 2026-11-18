@@ -83,6 +83,17 @@ namespace HueRelay
     [Serializable]
     public class LevelData
     {
+        public int id;
+        public string title;
+        public int chapter;
+        public float difficulty;
+        [Min(0)] public int par;
+        [Min(0)] public int moves;
+        [Min(0)] public int hints = 3;
+        [Min(0)] public int erasers = 3;
+        [Min(0)] public int extraMoves = 1;
+        public int[] solution;
+
         /// <summary>
         /// 棋盘列数。
         /// </summary>
@@ -113,13 +124,14 @@ namespace HueRelay
     }
 
     /// <summary>
-    /// 五个预设关卡 JSON 的根节点。
+    /// 关卡集及其独立的成绩存储版本。
     /// </summary>
     [Serializable]
     public class LevelCollection
     {
+        public string campaignId;
         /// <summary>
-        /// 按原 HTML 顺序排列的五个预设关卡。
+        /// 按难度顺序排列的关卡。
         /// </summary>
         public LevelData[] levels;
     }

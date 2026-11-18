@@ -128,7 +128,7 @@ namespace HueRelay
                 drawnLevel = LevelIndex;
                 drawnTut = tut;
                 drawnEndless = Endless;
-                titleText = tut >= 0 ? "How to Play" : Endless ? "Endless" : "Level " + (LevelIndex + 1) + "/5";
+                titleText = tut >= 0 ? "How to Play" : Endless ? "Endless" : "Level " + (LevelIndex + 1) + "/" + LevelCount;
             }
             if (Taps != drawnTaps || Limit != drawnLimit)
             {
@@ -571,7 +571,7 @@ namespace HueRelay
                 resultTitle = Won ? (Endless ? "Board cleared!" : "Level " + (LevelIndex + 1) + " complete!") : "Out of moves";
                 resultScore = Score.ToString();
                 resultDetail = Won ? (record ? "New best!\n" : "") + remaining + (remaining == 1 ? " move left" : " moves left") + " · +" + remaining * 50 + " bonus" : HueEngine.PC(Mask) + (HueEngine.PC(Mask) == 1 ? " arrow left" : " arrows left");
-                resultMain = !Won ? "Try Again" : Endless ? "New Board" : LevelIndex == 4 ? "Endless Mode" : "Next Level";
+                resultMain = !Won ? "Try Again" : Endless ? "New Board" : IsLastCampaignLevel ? "Endless Mode" : "Next Level";
                 resultSecondary = "Retry";
             }
 

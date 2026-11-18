@@ -78,6 +78,7 @@ namespace HueRelay.Editor
             var enabledScenes = EditorBuildSettings.scenes.Where(s => s.enabled).ToArray();
             if (enabledScenes.Length != 1 || enabledScenes[0].path != ScenePath)
                 errors.Add("Build Settings 只应启用 HueRelay 场景。");
+            errors.AddRange(HueCampaignValidation.Validate());
             return errors;
         }
 
@@ -89,7 +90,7 @@ namespace HueRelay.Editor
             Directory.CreateDirectory(ReportDirectory);
             File.WriteAllLines(ReportDirectory + "/dependencies.txt", AssetDatabase.GetDependencies(ScenePath, true));
             File.WriteAllLines(ReportDirectory + "/validation.txt", errors.Count == 0
-                ? new[] { "PASS: scene bindings, direct startup without loading UI, background, build scene" } : errors);
+                ? new[] { "PASS: scene bindings, direct startup without loading UI, background, build scene; 100 unique campaign layouts, geometry, item budgets, increasing difficulty, standard solutions replayed with HueEngine" } : errors);
             if (errors.Count > 0) { EditorApplication.Exit(1); return; }
             // Reproduce an already open scene surviving a script reload: the item
             // objects exist, while the newly added serialized fields are still null.
@@ -113,6 +114,7 @@ namespace HueRelay.Editor
         static int overlapPhase;
         static double overlapStarted;
         static bool overlapFinished;
+        static bool campaignChecked;
         static int originalMask, originalLimit;
         static double itemStarted;
         static bool winCheckStarted, winCheckFinished, sawWinSettling;
@@ -145,6 +147,11 @@ namespace HueRelay.Editor
                 var currentView = UnityEngine.Object.FindObjectOfType<HueView>();
                 if (!game.enabled || !currentView.ValidateBindings(out var bindingReason))
                     throw new Exception("Reloaded scene did not recover its required references.");
+                if (!campaignChecked)
+                {
+                    HueCampaignValidation.CheckRuntime(game, currentView);
+                    campaignChecked = true;
+                }
                 if (!overlapFinished)
                 {
                     CheckOverlappingTaps(game);
@@ -185,7 +192,7 @@ namespace HueRelay.Editor
                 CompleteResult(game, true);
                 game.ContinueResult();
                 if (game.LevelIndex != 1 || game.Over) throw new Exception("Win did not advance to the next level.");
-                game.StartLevel(4);
+                game.StartLevel(game.LevelCount - 1);
                 CompleteResult(game, true);
                 if (!game.ModalVisible) throw new Exception("Final win did not show the normal result.");
                 game.ContinueResult();
@@ -411,7 +418,7 @@ namespace HueRelay.Editor
             var layout = typeof(HueGame).GetMethod("LayoutViewport", flags);
             foreach (var size in new[] { new Vector2(320, 480), new Vector2(390, 844), new Vector2(402, 707), new Vector2(430, 932), new Vector2(844, 390) })
             {
-                for (int level = 0; level < 5; level++)
+                for (int level = 0; level < game.LevelCount; level++)
                 {
                     game.StartLevel(level);
                     layout.Invoke(game, new object[] { size.x, size.y, new Rect(0, 34, size.x, size.y - 78) });
@@ -436,7 +443,7 @@ namespace HueRelay.Editor
         static void Finish()
         {
             File.WriteAllLines(HueMiniGameTools.ReportDirectory + "/playmode.txt", errors.Count == 0
-                ? new[] { "PASS: scene reload with missing item references, immediate startup, concurrent taps during chains/flights/bumps, queued/duplicate tap protection, hint, erase selection/cancel, blocked targets, animated removal, no chain/score/move cost, item limits, retry cancellation, failure rescue, tutorial isolation, eraser last-arrow victory, 25 responsive layouts, victory item lock through settling/bonus/result, win advance, endless continuation and input" } : errors);
+                ? new[] { "PASS: all 100 campaign budgets, hint routes, retry resets, chapter transitions and level labels; scene reload with missing item references, immediate startup, concurrent taps during chains/flights/bumps, queued/duplicate tap protection, hint, erase selection/cancel, blocked targets, animated removal, no chain/score/move cost, item limits, retry cancellation, failure rescue, tutorial isolation, eraser last-arrow victory, 500 responsive layouts, victory item lock through settling/bonus/result, win advance, level 100 endless continuation and input" } : errors);
             SessionState.SetBool(HueMiniGameTools.ValidationKey, false);
             Application.logMessageReceived -= OnLog;
             EditorApplication.update -= Tick;

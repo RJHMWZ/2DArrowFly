@@ -8,7 +8,7 @@ public class UIManager : MonoBehaviour
     public static UIManager Instance { get; private set; }
 
     [Header("Game Settings")]
-    [Range(1, 5)] public int startingLevel = 1;
+    [Range(1, 100)] public int startingLevel = 1;
     public bool showTutorial = true;
 
     void Awake()

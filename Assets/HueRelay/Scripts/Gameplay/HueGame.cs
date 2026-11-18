@@ -147,6 +147,9 @@ namespace HueRelay
         }
 
         private LevelData[] levels;
+        private string campaignBestPrefix = "cc_b";
+        public int LevelCount => levels != null ? levels.Length : 0;
+        public bool IsLastCampaignLevel => !Endless && LevelIndex == LevelCount - 1;
         private int par;
         private int hints = 3;
         private int bestScore;
@@ -354,7 +357,15 @@ namespace HueRelay
                 enabled = false;
                 return;
             }
-            levels = JsonConvert.DeserializeObject<LevelCollection>(sceneView.levelData.text).levels;
+            var collection = JsonConvert.DeserializeObject<LevelCollection>(sceneView.levelData.text);
+            levels = collection?.levels;
+            if (LevelCount == 0)
+            {
+                Debug.LogError("HueGame requires at least one campaign level.", this);
+                enabled = false;
+                return;
+            }
+            if (!string.IsNullOrEmpty(collection.campaignId)) campaignBestPrefix = "cc_" + collection.campaignId + "_b";
             now = Time.unscaledTime;
             if (PlayerPrefs.HasKey("cc_prog"))
             {
@@ -372,13 +383,13 @@ namespace HueRelay
         /// <param name="index">预设关卡或教学步骤的零基编号。</param>
         public void StartLevel(int index)
         {
-            LevelIndex = Mathf.Clamp(index, 0, 4);
+            LevelIndex = Mathf.Clamp(index, 0, LevelCount - 1);
             Endless = false;
             P = Prep(levels[LevelIndex]);
-            par = Best(P, P.Full, new HueRandom(7), 300).taps;
-            Limit = par + Slack[LevelIndex];
+            par = P.L.par > 0 ? P.L.par : Best(P, P.Full, new HueRandom(7), 300).taps;
+            Limit = P.L.moves > 0 ? P.L.moves : par + 2;
             baseMoveLimit = Limit;
-            bestScore = PlayerPrefs.GetInt("cc_b" + LevelIndex, 0);
+            bestScore = PlayerPrefs.GetInt(campaignBestPrefix + LevelIndex, 0);
             ResetGame();
         }
 
@@ -464,9 +475,9 @@ namespace HueRelay
             Mask = P.Full;
             Taps = Score = 0;
             ds = 0;
-            hints = 3;
-            eraseUses = 3;
-            extraMoveUses = 1;
+            hints = Mathf.Max(0, P.L.hints);
+            eraseUses = Mathf.Max(0, P.L.erasers);
+            extraMoveUses = Mathf.Max(0, P.L.extraMoves);
             Limit = baseMoveLimit;
             CancelErase();
             q.Clear();
@@ -519,20 +530,34 @@ namespace HueRelay
         }
 
         /// <summary>
-        /// 消耗一次提示，使用与原版相同的 300 次模拟搜索选择可点击箭头。
+        /// 优先提示关卡标准解；偏离标准路线或进入无尽模式时使用模拟搜索。
         /// </summary>
         public void Hint()
         {
             if (!CanHint)
                 return;
-            var b = Best(P, Mask, hintRandom, 300);
-            if (b.first < 0)
+            int suggested = CampaignHint();
+            if (suggested < 0) suggested = Best(P, Mask, hintRandom, 300).first;
+            if (suggested < 0)
                 return;
             hints--;
-            hintId = b.first;
+            hintId = suggested;
             hintAt = now;
             audioBus.Tone(660, .14, .08);
             Render();
+        }
+
+        private int CampaignHint()
+        {
+            if (Endless || P.L.solution == null) return -1;
+            int remainingMask = P.Full;
+            foreach (int selected in P.L.solution)
+            {
+                if (selected < 0 || selected >= P.n || !IsFree(P, remainingMask, selected)) return -1;
+                if (remainingMask == Mask) return selected;
+                remainingMask = Chain(P, remainingMask, selected);
+            }
+            return -1;
         }
 
         /// <summary>
@@ -689,7 +714,7 @@ namespace HueRelay
                 ResetGame();
             else if (Endless)
                 StartRandom();
-            else if (LevelIndex == 4)
+            else if (IsLastCampaignLevel)
                 StartEndless();
             else
                 StartLevel(LevelIndex + 1);
@@ -806,7 +831,7 @@ namespace HueRelay
                 if (record)
                 {
                     bestScore = Score;
-                    PlayerPrefs.SetInt(Endless ? "cc_best" : "cc_b" + LevelIndex, Score);
+                    PlayerPrefs.SetInt(Endless ? "cc_best" : campaignBestPrefix + LevelIndex, Score);
                 }
 
                 PlayerPrefs.Save();

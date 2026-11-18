@@ -49,18 +49,6 @@ namespace HueRelay
         };
 
         /// <summary>
-        /// 五个预设关卡在基准步数外允许的额外步数。
-        /// </summary>
-        public static readonly int[] Slack =
-        {
-            3,
-            2,
-            2,
-            1,
-            1
-        };
-
-        /// <summary>
         /// 原 HTML 的五组种植式生成规格。
         /// </summary>
         public static readonly Spec[] Specs =

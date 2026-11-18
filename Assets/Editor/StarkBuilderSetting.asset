@@ -33,7 +33,7 @@ MonoBehaviour:
   assetBundleBufferTTL: 5
   enableBulkMemory: 0
   enableStripEngineCode: 1
-  enableSDKLog: 0
+  enableSDKLog: 1
   preloadFiles: 
   CDN: 
   preloadDataListUrl: 
