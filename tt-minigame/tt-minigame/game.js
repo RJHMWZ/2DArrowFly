@@ -13,12 +13,12 @@ require('./plugin-config.js');
 
 const managerConfig = {
      DATA_CDN: "",
-     DATA_FILE_MD5: "eaad5f8f05a7d467", 
-     CODE_FILE_MD5: "11a09d6be4f45b3d",
+     DATA_FILE_MD5: "64dc33fa9f3f1d26", 
+     CODE_FILE_MD5: "5e8e56a651b34999",
      GAME_NAME: "webgl",
      APPID: "ArrowTest",
-     DATA_FILE_SIZE: "9723041",
-     OPT_DATA_FILE_SIZE: "9723041",
+     DATA_FILE_SIZE: "10085280",
+     OPT_DATA_FILE_SIZE: "10085280",
      useDataCDNAsStreamingAssetsUrl: false,
 	 
      loadDataPackageFromSubpackage: true,

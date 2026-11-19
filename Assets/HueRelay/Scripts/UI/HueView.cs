@@ -6,7 +6,7 @@ using UnityEngine.Serialization;
 namespace HueRelay
 {
     /// <summary>
-    /// 保存在场景中的固定界面引用与自适应布局。此组件不创建对象、不生成关卡，
+    /// 保存在场景中的固定界面引用与自适应布局；仅兼容旧场景时补充分数背景，
     /// 编辑模式也可预览固定界面；业务状态和动画时间仍由 HueGame 驱动。
     /// </summary>
     [ExecuteAlways]
@@ -28,17 +28,19 @@ namespace HueRelay
         public Text score;
         public Text best;
         public Text levelTitle;
-        public HuePanel movesChip;
+        public Image scoreChip;
+        public Image movesChip;
         public Text moves;
         public RectTransform progressTrack;
         public RectTransform progressFill;
+        public Text progressCaption;
 
         [Header("Power Ups")]
         public RectTransform powerUpBar;
         public Button hintButton;
         [FormerlySerializedAs("undoButton")] public Button eraseButton;
         public Button extraMovesButton;
-        public HuePanel hintBadge;
+        public Image hintBadge;
         public Text hintCount;
         [FormerlySerializedAs("undoCount")] public Text eraseCount;
         public Text extraMovesCount;
@@ -56,7 +58,7 @@ namespace HueRelay
         [Header("Board")]
         public RectTransform stage;
         public RectTransform boardFrame;
-        public HuePanel boardBackground;
+        public Image boardBackground;
 
         [Header("Chains and Milestones")]
         public CanvasGroup comboGroup;
@@ -73,7 +75,7 @@ namespace HueRelay
         public Text tutorialNextText;
 
         [Header("Result Card")]
-        public HuePanel resultBackdrop;
+        public Image resultBackdrop;
         public CanvasGroup resultGroup;
         public Text resultTitle;
         public Text resultScore;
@@ -83,7 +85,8 @@ namespace HueRelay
         public Text resultPrimaryText;
         public Button resultSecondary;
         public Text resultSecondaryText;
-        public HuePanel victoryFlash;
+        public Image resultEmblem;
+        public Image victoryFlash;
 
         [Header("Layout (Logical Pixels)")]
         [Min(0)] public float sidePadding = 14;
@@ -93,11 +96,15 @@ namespace HueRelay
         [Min(0)] public float scoreLineHeight = 41.8f;
         [Min(0)] public float bestLineHeight = 17;
         [Min(0)] public float bestTopGap = 4;
-        [Min(0)] public float progressHeight = 6;
+        [Min(0)] public float progressHeight = 16;
         [Min(0)] public float backdropBlur = 4;
         [Min(44)] public float powerUpHeight = 76;
         [Min(0)] public float powerUpBottomPadding = 12;
         [Min(0)] public float powerUpBoardGap = 16;
+
+        public float ProgressLayoutHeight => Mathf.Clamp(progressHeight, 5, 16);
+        public float HudHeight => Mathf.Max(44, scoreLineHeight);
+        public float HudChipWidth => Mathf.Min(104, head.rect.width * .28f);
 
         private float layoutWidth = -1;
         private float layoutHeight = -1;
@@ -109,8 +116,7 @@ namespace HueRelay
         private float layoutPhysicalScale = -1;
         private bool layoutTutorial;
         private Vector2 previewSize;
-        private float lastResultDetail = -1;
-        private bool lastResultWin;
+        private bool? shownComplete;
         private string measuredTutorial;
         private float measuredTutorialWidth = -1;
         private float tutorialTextHeight;
@@ -126,11 +132,16 @@ namespace HueRelay
             public Font font;
         }
         private readonly Dictionary<Text, TextFit> textFits = new Dictionary<Text, TextFit>();
+        private readonly Dictionary<Text, int> hudFontSizes = new Dictionary<Text, int>();
+        private readonly Vector3[] hudCorners = new Vector3[4];
+        private Vector3 scoreRestScale = Vector3.one;
 
         /// <summary>启动前验证场景绑定；缺失时由控制器报错，不回退为运行时重新搭建整套 UI。</summary>
         public bool ValidateBindings(out string reason)
         {
+            ResolveImageBindings();
             ResolvePowerUpBindings();
+            ResolvePresentationBindings();
             bool valid = canvas && levelData && canvasMaterial && backdropMaterial && boardSurface && effectsSurface
                 && header && head && retryButton && helpButton && hintButton && hintBadge && hintCount
                 && powerUpBar && eraseButton && extraMovesButton && eraseCount && extraMovesCount
@@ -156,6 +167,121 @@ namespace HueRelay
             return valid;
         }
 
+        // Unity can drop serialized component references in an already-open
+        // scene when a field changes from HuePanel to Image. The authored Images
+        // still exist: recover those exact nodes before deciding startup failed.
+        private void ResolveImageBindings()
+        {
+            if (!movesChip)
+            {
+                if (moves && moves.transform.parent)
+                    movesChip = moves.transform.parent.GetComponent<Image>();
+                if (!movesChip) movesChip = FindImage(head, "MovesChip");
+            }
+            if (!boardBackground) boardBackground = FindImage(boardFrame, "BoardBackground");
+            if (!resultBackdrop) resultBackdrop = FindImage(stage, "ResultBackdrop");
+            if (!victoryFlash) victoryFlash = FindImage(transform, "VictoryFlash");
+        }
+
+        private static Image FindImage(Transform scope, string objectName)
+        {
+            if (!scope) return null;
+            foreach (var image in scope.GetComponentsInChildren<Image>(true))
+                if (image.name == objectName) return image;
+            return null;
+        }
+
+        // Cosmetic additions must not prevent an already open older scene from
+        // starting. Recover authored controls when present; retain the old HUD
+        // when its caption has not yet been imported into the open scene.
+        private void ResolvePresentationBindings()
+        {
+            if (!scoreChip && head)
+                scoreChip = head.Find("ScoreChip")?.GetComponent<Image>();
+            // Older open scenes do not yet contain the newly authored pill.
+            // Add only this decorative background, once, without a required binding.
+            if (!scoreChip && head && movesChip && Application.isPlaying)
+            {
+                var chip = new GameObject("ScoreChip", typeof(RectTransform), typeof(CanvasRenderer), typeof(Image));
+                chip.transform.SetParent(head, false);
+                chip.transform.SetAsFirstSibling();
+                scoreChip = chip.GetComponent<Image>();
+                scoreChip.material = movesChip.material;
+                scoreChip.color = movesChip.color;
+                scoreChip.sprite = movesChip.sprite;
+                scoreChip.type = movesChip.type;
+                scoreChip.pixelsPerUnitMultiplier = movesChip.pixelsPerUnitMultiplier;
+                scoreChip.raycastTarget = false;
+                var rect = scoreChip.rectTransform;
+                rect.anchorMin = score.rectTransform.anchorMin;
+                rect.anchorMax = score.rectTransform.anchorMax;
+                rect.pivot = new Vector2(.5f, .5f);
+                rect.anchoredPosition = score.rectTransform.anchoredPosition;
+                rect.sizeDelta = new Vector2(HudChipWidth, 38);
+            }
+            if (!progressCaption && header)
+                progressCaption = header.Find("ProgressCaption")?.GetComponent<Text>();
+            if (progressCaption) SetActive(progressCaption.gameObject, false);
+            if (!resultEmblem && resultGroup)
+            {
+                var emblem = resultGroup.transform.Find("ResultEmblem");
+                if (!emblem) emblem = resultGroup.transform.Find("ToolbarDivider");
+                if (emblem) resultEmblem = emblem.GetComponent<Image>();
+                if (resultEmblem)
+                {
+                    resultEmblem.color = Color.white;
+                    resultEmblem.SetVerticesDirty();
+                }
+            }
+            // Recover the disabled retry background in already-open older scenes.
+            if (resultSecondary && resultSecondary.TryGetComponent<Image>(out var retryBackground) && !retryBackground.enabled && movesChip)
+            {
+                retryBackground.sprite = movesChip.sprite;
+                retryBackground.material = null;
+                retryBackground.type = Image.Type.Sliced;
+                retryBackground.pixelsPerUnitMultiplier = movesChip.pixelsPerUnitMultiplier;
+                retryBackground.color = new Color(.90f, .91f, .94f);
+                retryBackground.enabled = true;
+                resultSecondary.targetGraphic = retryBackground;
+                if (resultSecondaryText) resultSecondaryText.color = new Color(.38f, .41f, .51f);
+            }
+            MatchResultButtonStyle();
+        }
+
+        public void MatchResultButtonStyle()
+        {
+            if (!resultPrimary || !resultSecondary) return;
+            var primary = resultPrimary.GetComponent<Image>();
+            var secondary = resultSecondary.GetComponent<Image>();
+            if (!primary || !secondary) return;
+            // Migrate the old baked-blue art to the shared tintable panel.
+            if (primary.sprite && primary.sprite.name == "Button" && movesChip)
+            {
+                primary.sprite = movesChip.sprite;
+                primary.color = new Color(.29f, .40f, .97f);
+            }
+            secondary.sprite = primary.sprite;
+            secondary.material = primary.material;
+            secondary.type = primary.type;
+            secondary.pixelsPerUnitMultiplier = primary.pixelsPerUnitMultiplier;
+            secondary.preserveAspect = primary.preserveAspect;
+            secondary.enabled = true;
+            resultSecondary.targetGraphic = secondary;
+            var mainRect = primary.rectTransform;
+            var retryRect = secondary.rectTransform;
+            retryRect.anchorMin = mainRect.anchorMin;
+            retryRect.anchorMax = mainRect.anchorMax;
+            retryRect.pivot = mainRect.pivot;
+            retryRect.sizeDelta = mainRect.sizeDelta;
+            retryRect.localScale = mainRect.localScale;
+            if (resultPrimaryText && resultSecondaryText)
+            {
+                resultSecondaryText.font = resultPrimaryText.font;
+                resultSecondaryText.fontStyle = resultPrimaryText.fontStyle;
+                resultSecondaryText.alignment = resultPrimaryText.alignment;
+            }
+        }
+
         /// <summary>
         /// Recover references to authored item controls after an editor script reload.
         /// Unity can retain an open scene instance that predates newly serialized fields,
@@ -177,7 +303,7 @@ namespace HueRelay
                 var badge = FindItemBadge(hint);
                 if (badge)
                 {
-                    if (!hintBadge) hintBadge = badge.GetComponent<HuePanel>();
+                    if (!hintBadge) hintBadge = badge.GetComponent<Image>();
                     if (!hintCount) hintCount = badge.GetComponentInChildren<Text>(true);
                 }
             }
@@ -199,10 +325,10 @@ namespace HueRelay
 
         private static Transform FindItemBadge(Transform item)
         {
-            // Labels are Text children; the inventory badge is the child HuePanel
+            // Labels are Text children; the inventory badge is the child Image
             // containing a Text, independent of the scene object's display language.
             foreach (Transform child in item)
-                if (child.GetComponent<HuePanel>() && child.GetComponentInChildren<Text>(true))
+                if (child.GetComponent<Image>() && child.GetComponentInChildren<Text>(true))
                     return child;
             return null;
         }
@@ -228,12 +354,13 @@ namespace HueRelay
             layoutPhysicalScale = physicalScale;
 
             float headerWidth = (appWidth - sidePadding * 2 * scale) / scale;
-            float headHeight = scoreLineHeight + bestTopGap + (teaching ? 0 : bestLineHeight);
+            float headHeight = HudHeight;
             SetBox(header, new Rect(appX + sidePadding * scale, top + topPadding * scale, headerWidth, 180));
             header.localScale = Vector3.one * scale;
             head.SetSizeWithCurrentAnchors(RectTransform.Axis.Vertical, headHeight);
             head.anchoredPosition = new Vector2(head.anchoredPosition.x, -(toolbarHeight + sectionGap));
-            SetBox(progressTrack, new Rect(0, toolbarHeight + sectionGap + headHeight + sectionGap, headerWidth, progressHeight));
+            float progressY = toolbarHeight + sectionGap + headHeight + sectionGap;
+            SetBox(progressTrack, new Rect(4, progressY, headerWidth - 8, 5));
             SetBox(stage, new Rect(appX + sidePadding * scale, stageY, appWidth - sidePadding * 2 * scale, stageHeight));
             float barWidth = appWidth / scale - sidePadding * 2;
             SetBox(powerUpBar, new Rect(appX + sidePadding * scale, PowerUpTop(height, scale, bottom), barWidth, powerUpHeight));
@@ -249,9 +376,6 @@ namespace HueRelay
             }
             PlaceCenter(boardFrame, new Vector2(boardX + boardWidth * .5f, boardY + boardHeight * .5f),
                 new Vector2(boardWidth + 16 * scale, boardHeight + 16 * scale));
-            boardBackground.SetMetrics(28 * scale, 30 * scale, 10 * scale, -4 * scale);
-            resultBackdrop.radius = 16 * scale;
-            resultBackdrop.SetVerticesDirty();
             boardSurface.rectTransform.sizeDelta = effectsSurface.rectTransform.sizeDelta = new Vector2(width, height);
             best.gameObject.SetActive(!teaching);
             resultGroup.transform.localScale = tutorialGroup.transform.localScale = Vector3.one * scale;
@@ -267,26 +391,51 @@ namespace HueRelay
         /// <summary>更新既有 HUD 节点；不再每帧生成固定背景、按钮和标签网格。</summary>
         public void SetHud(string scoreValue, Color scoreColor, float scoreScale, float scoreWidth,
             string bestValue, string titleValue, string movesValue, Color movesColor,
-            float fill, bool teaching, float movesWidth)
+            float fill, bool teaching, float movesWidth, int cleared, int total, bool complete)
         {
             score.text = scoreValue;
             score.color = scoreColor;
-            float columnWidth = head.rect.width * .32f;
-            FitLabel(score, columnWidth / Mathf.Max(1.6f, scoreScale), 44);
-            score.rectTransform.anchoredPosition = new Vector2(columnWidth * .5f, -scoreLineHeight * .47f);
-            score.rectTransform.localScale = Vector3.one * scoreScale;
+            float pop = Mathf.Min(scoreScale, 1.12f);
+            FitHudLabel(score);
+            score.rectTransform.localScale = scoreRestScale * pop;
             best.text = bestValue;
-            FitLabel(best, columnWidth, 13);
+            FitHudLabel(best);
             levelTitle.text = titleValue;
-            movesWidth = Mathf.Min(movesWidth, head.rect.width * .34f);
-            FitLabel(levelTitle, Mathf.Max(40, head.rect.width - 2 * Mathf.Max(columnWidth, movesWidth) - 12), 20);
+            FitHudLabel(levelTitle);
             moves.text = movesValue;
             moves.color = movesColor;
-            movesChip.rectTransform.SetSizeWithCurrentAnchors(RectTransform.Axis.Horizontal, movesWidth);
-            FitLabel(moves, movesWidth - 20, 15);
+            FitHudLabel(moves);
             Vector2 maximum = progressFill.anchorMax;
             maximum.x = Mathf.Clamp01(fill);
             progressFill.anchorMax = maximum;
+            if (progressCaption) SetActive(progressCaption.gameObject, false);
+            if (shownComplete != complete)
+            {
+                shownComplete = complete;
+                progressFill.GetComponent<Image>().color = new Color(.20f, .72f, .55f);
+            }
+        }
+
+        // HUD geometry and alignment are authored in the scene. Only shrink text
+        // when a changing score/move count exceeds its existing text rectangle.
+        private void FitHudLabel(Text label)
+        {
+            if (!hudFontSizes.TryGetValue(label, out var maximum))
+            {
+                maximum = label.fontSize;
+                hudFontSizes.Add(label, maximum);
+            }
+            FitLabel(label, label.rectTransform.rect.width, maximum);
+        }
+
+        public Rect HudBounds(RectTransform target)
+        {
+            target.GetWorldCorners(hudCorners);
+            var canvasRect = (RectTransform)canvas.transform;
+            Vector3 bottomLeft = canvasRect.InverseTransformPoint(hudCorners[0]);
+            Vector3 topRight = canvasRect.InverseTransformPoint(hudCorners[2]);
+            return new Rect(bottomLeft.x - canvasRect.rect.xMin, canvasRect.rect.yMax - topRight.y,
+                topRight.x - bottomLeft.x, topRight.y - bottomLeft.y);
         }
 
         public float PowerUpTop(float height, float scale, float bottom)
@@ -395,15 +544,20 @@ namespace HueRelay
             FitLabel(tutorialNextText, buttonWidth - 16, 15);
         }
 
-        /// <summary>更新结算内容和原版底部滑入曲线，不创建或销毁任何固定控件。</summary>
+        /// <summary>居中呈现结算卡片，轻微上浮淡入；胜利保留明亮棋盘背景。</summary>
         public void SetResult(bool win, bool newRecord, float scale, float easing, string title, string number,
             string detail, string primary, string secondary)
         {
             SetActive(resultBackdrop.gameObject, true);
             SetActive(resultGroup.gameObject, true);
             resultGroup.alpha = Mathf.Clamp01(easing);
-            float width = stage.rect.width / scale;
-            float detailWidth = width - 40;
+            resultGroup.interactable = easing > .9f;
+            // Keep the input barrier, without a visible rectangle below the HUD.
+            resultBackdrop.material = null;
+            resultBackdrop.color = new Color(.94f, .96f, 1, win ? 0 : .65f * easing);
+            float width = Mathf.Min(340, stage.rect.width / scale - 16);
+            float detailWidth = width - 48;
+            resultDetail.fontSize = 13;
             if (measuredDetail != detail || measuredDetailWidth != detailWidth)
             {
                 measuredDetail = detail;
@@ -416,10 +570,12 @@ namespace HueRelay
             }
             float detailHeight = resultDetailHeight;
             RectTransform card = (RectTransform)resultGroup.transform;
-            card.sizeDelta = new Vector2(width,
-                5 + 4 + 29 + 68 + detailHeight + 50 + (win ? 36 : 0) + (win ? 50 : 40) + 28);
-            card.anchoredPosition = new Vector2(0, 8 * scale - (1 - easing) * 40 * scale);
-            card.localScale = Vector3.one * scale * Mathf.Min(1, Mathf.Max(.1f, stage.rect.height / scale - 16) / card.sizeDelta.y);
+            float height = (win ? 370 : 250) + detailHeight;
+            card.sizeDelta = new Vector2(width, height);
+            card.anchorMin = card.anchorMax = card.pivot = new Vector2(.5f, .5f);
+            card.anchoredPosition = new Vector2(0, -(1 - easing) * 18 * scale);
+            card.localScale = Vector3.one * scale * Mathf.Min(1, Mathf.Max(.1f, stage.rect.height / scale - 24) / height)
+                * Mathf.Lerp(.97f, 1, easing);
             resultTitle.text = title;
             resultScore.text = number;
             resultDetail.text = detail;
@@ -428,15 +584,23 @@ namespace HueRelay
             FitLabel(resultTitle, detailWidth, 22);
             FitLabel(resultScore, detailWidth, 68);
             FitLabel(resultPrimaryText, detailWidth - 32, 17);
-            FitLabel(resultSecondaryText, detailWidth - 32, 15);
-            if (lastResultDetail != detailHeight || lastResultWin != win)
+            FitLabel(resultSecondaryText, detailWidth - 32, 17);
+            if (resultEmblem)
             {
-                lastResultDetail = detailHeight;
-                lastResultWin = win;
-                resultDetail.rectTransform.SetSizeWithCurrentAnchors(RectTransform.Axis.Vertical, detailHeight);
-                resultButtons.SetSizeWithCurrentAnchors(RectTransform.Axis.Vertical, win ? 96 : 50);
-                SetActive(resultSecondary.gameObject, win);
+                SetActive(resultEmblem.gameObject, win);
+                SetResultBox(resultEmblem.rectTransform, width * .5f - 26, 24, 52, 52);
             }
+            SetResultBox(resultTitle.rectTransform, 24, win ? 90 : 28, detailWidth, 32);
+            SetResultBox(resultScore.rectTransform, 24, win ? 128 : 70, detailWidth, 76);
+            SetResultBox(resultDetail.rectTransform, 24, win ? 210 : 150, detailWidth, detailHeight);
+            resultDetail.color = newRecord && win ? new Color(.12f, .58f, .43f) : new Color(.46f, .49f, .61f);
+            SetResultBox(resultButtons, 24, height - (win ? 132 : 74), detailWidth, win ? 110 : 50);
+            SetActive(resultSecondary.gameObject, win);
+        }
+
+        private static void SetResultBox(RectTransform target, float x, float y, float width, float height)
+        {
+            SetBox(target, new Rect(x, y, width, height));
         }
 
         // Measure only when content, font or available width changes. Animation
@@ -526,6 +690,8 @@ namespace HueRelay
 
         private void OnEnable()
         {
+            if (score) scoreRestScale = score.rectTransform.localScale;
+            hudFontSizes.Clear();
             Preview();
         }
         private void Update()
@@ -543,7 +709,7 @@ namespace HueRelay
             float height = Mathf.Max(1, previewSize.y);
             float scale = Mathf.Clamp(Mathf.Min(width / 390, height / 800), .75f, 3.5f);
             float appWidth = Mathf.Min(width, 460 * scale);
-            float stageY = (topPadding + toolbarHeight + sectionGap + scoreLineHeight + bestTopGap + bestLineHeight + sectionGap + progressHeight) * scale;
+            float stageY = (topPadding + toolbarHeight + sectionGap + HudHeight + sectionGap + ProgressLayoutHeight) * scale;
             float stageHeight = Mathf.Max(1, PowerUpTop(height, scale, 0) - powerUpBoardGap * scale - stageY);
             float cell = Mathf.Max(1, Mathf.Min(64 * scale, Mathf.Floor((appWidth - 60 * scale) / 5), Mathf.Floor((stageHeight - 48 * scale) / 6)));
             ApplyLayout(width, height, scale, (width - appWidth) * .5f, appWidth, 0, 0, stageY, stageHeight,

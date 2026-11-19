@@ -16,7 +16,7 @@ namespace HueRelay
 
         // Clearing the final arrow already commits the board to a win, including
         // the settling interval before the victory flags are updated.
-        private bool PowerUpsReady => Mask != 0 && !generating && tut < 0 && (!Over || !Won) && Idle;
+        private bool PowerUpsReady => Mask != 0 && !generating && tut < 0 && !UsesChainGuide && (!Over || !Won) && Idle;
         public bool CanHint => PowerUpsReady && !IsChoosingErase && !Over && hints > 0 && Taps < Limit;
         public bool CanErase => PowerUpsReady && eraseUses > 0;
         public bool CanAddMoves => PowerUpsReady && !IsChoosingErase && extraMoveUses > 0;

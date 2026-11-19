@@ -54,12 +54,12 @@ namespace HueRelay.Editor
                 errors.Add("游戏 Canvas 需要使用 Constant Pixel Size。");
             if (view != null && view.ValidateBindings(out _))
             {
-                var icons = view.powerUpBar.GetComponentsInChildren<Image>(true);
+                var icons = view.powerUpBar.GetComponentsInChildren<Image>(true).Where(i => i.gameObject.name == "Icon").ToArray();
                 if (icons.Length != 3 || icons.Any(icon => !icon.sprite || !icon.preserveAspect || icon.raycastTarget))
                     errors.Add("三个道具图标必须绑定透明图片、保持比例且不拦截点击。");
                 if (!view.eraseCursor || !view.eraseCursor.sprite || !view.eraseDust || !view.eraseDust.texture || !view.erasePrompt || !view.eraseLabel)
                     errors.Add("Generated eraser animation and selection prompt must be bound.");
-                var retryIcon = view.retryButton.GetComponentInChildren<Image>(true);
+                var retryIcon = view.retryButton.GetComponentsInChildren<Image>(true).FirstOrDefault(i => i.transform != view.retryButton.transform);
                 if (!retryIcon || !retryIcon.sprite || retryIcon.raycastTarget)
                     errors.Add("Retry must use a PNG icon without intercepting pointer input.");
                 var game = UnityEngine.Object.FindObjectOfType<HueGame>(true);
@@ -96,9 +96,46 @@ namespace HueRelay.Editor
             // objects exist, while the newly added serialized fields are still null.
             // HueGame.Awake must bind that scene successfully without manual repair.
             var view = UnityEngine.Object.FindObjectOfType<HueView>(true);
+            var expectedImages = new[] { view.movesChip, view.boardBackground, view.resultBackdrop, view.victoryFlash };
+            var imagePositions = expectedImages.Select(i => i.rectTransform.anchoredPosition).ToArray();
+            view.movesChip = view.boardBackground = view.resultBackdrop = view.victoryFlash = null;
+            if (!view.ValidateBindings(out var imageReason))
+                throw new Exception("Image component migration blocked startup: " + imageReason);
+            var recoveredImages = new[] { view.movesChip, view.boardBackground, view.resultBackdrop, view.victoryFlash };
+            for (int i = 0; i < expectedImages.Length; i++)
+                if (expectedImages[i] != recoveredImages[i] || imagePositions[i] != recoveredImages[i].rectTransform.anchoredPosition)
+                    throw new Exception("Image migration replaced or moved an authored control.");
+            view.progressCaption = null;
+            view.resultEmblem = null;
+            if (!view.ValidateBindings(out var presentationReason) || !view.progressCaption || !view.resultEmblem)
+                throw new Exception("Presentation references did not recover: " + presentationReason);
+            var captionObject = view.progressCaption.gameObject;
+            var emblemObject = view.resultEmblem.gameObject;
+            emblemObject.name = "ToolbarDivider";
+            view.resultEmblem = null;
+            if (!view.ValidateBindings(out presentationReason) || !view.resultEmblem || !view.resultEmblem.sprite)
+                throw new Exception("Legacy result handle did not recover as an emblem.");
+            // An older open scene can lack both additions entirely, rather than
+            // only their serialized references. Run the gameplay smoke in that state.
+            UnityEngine.Object.DestroyImmediate(captionObject);
+            UnityEngine.Object.DestroyImmediate(emblemObject);
+            if (view.scoreChip)
+            {
+                view.score.transform.SetParent(view.head, true);
+                UnityEngine.Object.DestroyImmediate(view.scoreChip.gameObject);
+            }
+            view.scoreChip = null;
+            view.progressCaption = null;
+            view.resultEmblem = null;
+            view.progressHeight = 6;
+            if (!view.ValidateBindings(out presentationReason))
+                throw new Exception("Optional presentation controls blocked legacy startup: " + presentationReason);
             view.powerUpBar = null;
             view.eraseButton = view.extraMovesButton = null;
             view.eraseCount = view.extraMovesCount = null;
+            // Clear these again so recovery is exercised by HueGame.Awake,
+            // without an editor validation or scene reopen repairing them first.
+            view.movesChip = view.boardBackground = view.resultBackdrop = view.victoryFlash = null;
             SessionState.SetBool(ValidationKey, true);
             EditorApplication.isPlaying = true;
         }
@@ -120,6 +157,8 @@ namespace HueRelay.Editor
         static bool winCheckStarted, winCheckFinished, sawWinSettling;
         static double winCheckStartedAt;
         static readonly List<string> errors = new List<string>();
+        static int guidedLevel, guidedPhase, guidedExpectedMask, guidedExpectedScore;
+        static double guidedStarted;
 
         static HueMiniGameBatchSmoke()
         {
@@ -149,11 +188,33 @@ namespace HueRelay.Editor
                     throw new Exception("Reloaded scene did not recover its required references.");
                 if (!campaignChecked)
                 {
+                    float expectedScale = Screen.width > Screen.height ? Screen.height / 800f : Screen.width / 390f;
+                    if (Mathf.Abs(currentView.canvas.scaleFactor - expectedScale) > .001f)
+                        throw new Exception("Recovered startup did not apply the game canvas scale.");
+                    if (!currentView.scoreChip || currentView.head.GetComponentsInChildren<Image>(true).Count(p => p.name == "ScoreChip") != 1)
+                        throw new Exception("Legacy scene did not recover exactly one score pill.");
+                    game.StartLevel(0);
+                    var puzzle = game.P;
+                    var root = Field("root").GetValue(game);
+                    game.enabled = false;
+                    Field("root").SetValue(game, null);
+                    currentView.helpButton.onClick.Invoke();
+                    currentView.retryButton.onClick.Invoke();
+                    game.StartTutorial();
+                    if (game.P != puzzle || game.TutorialStepIndex >= 0)
+                        throw new Exception("UI callbacks ran after failed initialization.");
+                    Field("root").SetValue(game, root);
+                    game.enabled = true;
+                    currentView.helpButton.onClick.Invoke();
+                    if (game.TutorialStepIndex != 0)
+                        throw new Exception("Help button did not open the tutorial in a legacy scene.");
+                    game.EndTutorial();
                     HueCampaignValidation.CheckRuntime(game, currentView);
                     campaignChecked = true;
                 }
                 if (!overlapFinished)
                 {
+                    if (guidedLevel < 3) { CheckGuidedLevels(game, currentView); return; }
                     CheckOverlappingTaps(game);
                     return;
                 }
@@ -203,6 +264,67 @@ namespace HueRelay.Editor
         }
 
         static FieldInfo Field(string name) => typeof(HueGame).GetField(name, BindingFlags.Instance | BindingFlags.NonPublic);
+
+        static void CheckGuidedLevels(HueGame game, HueView view)
+        {
+            var flags = BindingFlags.Instance | BindingFlags.NonPublic;
+            var render = typeof(HueGame).GetMethod("Render", flags);
+            if (guidedPhase == 0)
+            {
+                game.StartLevel(guidedLevel);
+                Field("built").SetValue(game, Time.unscaledTime - 10);
+                guidedPhase = 1;
+                guidedStarted = EditorApplication.timeSinceStartup;
+            }
+            if (EditorApplication.timeSinceStartup - guidedStarted > 20)
+                throw new Exception("Guided level timed out: " + guidedLevel);
+            if (guidedPhase == 2)
+            {
+                if (!game.Idle)
+                {
+                    int taps = game.Taps;
+                    for (int i=0;i<game.P.n;i++) game.TapArrow(i);
+                    if (game.Taps != taps) throw new Exception("Guided chain accepted overlapping input.");
+                    return;
+                }
+                if (game.Mask != guidedExpectedMask || game.Score != guidedExpectedScore)
+                    throw new Exception("Guided chain did not launch every expected arrow for one move.");
+                guidedPhase = 1;
+            }
+            if (game.Mask == 0)
+            {
+                if (view.finger.gameObject.activeSelf) throw new Exception("Guided hand remained after clear.");
+                if (!game.ModalVisible) return;
+                if (!game.Won) throw new Exception("Guided level did not finish as a win.");
+                game.ContinueResult();
+                if (game.LevelIndex != guidedLevel + 1) throw new Exception("Guided level did not advance.");
+                guidedLevel++; guidedPhase = 0;
+                if (guidedLevel == 3 && (bool)typeof(HueGame).GetProperty("UsesChainGuide",flags).GetValue(game))
+                    throw new Exception("Chain-only input leaked into level four.");
+                return;
+            }
+            render.Invoke(game,null);
+            Field("hintAt").SetValue(game, Time.unscaledTime-1);
+            render.Invoke(game,null);
+            int target = (int)Field("hintId").GetValue(game);
+            if (!view.finger.gameObject.activeSelf || target < 0 || game.CanHint || game.CanErase || game.CanAddMoves)
+                throw new Exception("Guided target/hand or item lock missing.");
+            int mask=game.Mask, previousTaps=game.Taps, score=game.Score;
+            var allowed=typeof(HueGame).GetMethod("CanStartGuidedChain",flags);
+            for(int i=0;i<game.P.n;i++)
+                if (!(bool)allowed.Invoke(game,new object[]{i})) game.TapArrow(i);
+            if(game.Mask!=mask || game.Taps!=previousTaps || game.Score!=score)
+                throw new Exception("A non-chain target consumed a move or changed the board.");
+            guidedExpectedMask=HueEngine.Chain(game.P,mask,target);
+            int removed=HueEngine.PC(mask)-HueEngine.PC(guidedExpectedMask);
+            if(removed<2) throw new Exception("Guidance selected a singleton.");
+            guidedExpectedScore=score+10*removed*(removed+1)/2;
+            game.TapArrow(target);
+            if(game.Taps!=previousTaps+1) throw new Exception("Guided tap did not spend exactly one move.");
+            render.Invoke(game,null);
+            if(view.finger.gameObject.activeSelf) throw new Exception("Guided hand did not hide during flight.");
+            guidedPhase=2;
+        }
 
         static void CheckOverlappingTaps(HueGame game)
         {

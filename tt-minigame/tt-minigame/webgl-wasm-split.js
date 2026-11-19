@@ -1,5 +1,5 @@
 module.exports = {
-	originalWasmMd5: "bd19e29211a09d6be4f45b3d28e8cf38",
+	originalWasmMd5: "09cdb2e55e8e56a651b34999de73f53c",
     wasmTableSize: "$WASMTABLESIZE",
     wasmSplitVersion: "$WASMSPLITVERSION",
     subJsUrl: "$SUBJSURL",

@@ -40,6 +40,7 @@ namespace HueRelay
         /// </summary>
         private void Render()
         {
+            UpdateCampaignGuide();
             RenderChrome();
             float pt = (now - punchAt) / .52f;
             float ps = pt >= 0 && pt < 1 ? 1 + .05f * Mathf.Sin(pt * Mathf.PI) * (1 - .35f * pt) : 1;
@@ -117,7 +118,6 @@ namespace HueRelay
                 scoreText = displayScore.ToString();
             }
             float scoreW = scoreText.Length * 24.376f * K;
-            scoreRect.width = scoreW;
             if (bestScore != drawnBest)
             {
                 drawnBest = bestScore;
@@ -128,7 +128,7 @@ namespace HueRelay
                 drawnLevel = LevelIndex;
                 drawnTut = tut;
                 drawnEndless = Endless;
-                titleText = tut >= 0 ? "How to Play" : Endless ? "Endless" : "Level " + (LevelIndex + 1) + "/" + LevelCount;
+                titleText = tut >= 0 ? "How to Play" : Endless ? "Endless" : "Level " + (LevelIndex + 1);
             }
             if (Taps != drawnTaps || Limit != drawnLimit)
             {
@@ -138,7 +138,7 @@ namespace HueRelay
             }
             sceneView.SetHud(scoreText, scoreColor, scoreScale, scoreW / K, bestText, titleText,
                 chipOverride ?? movesText, Limit - Taps <= 2 ? Orange : Ink,
-                progress, tut >= 0, chipRect.width / K);
+                progress, tut >= 0, chipRect.width / K, P.n - HueEngine.PC(Mask), P.n, Won && Over);
             sceneView.SetPowerUps(hints, eraseUses, extraMoveUses, CanHint, CanErase, CanAddMoves, IsChoosingErase);
         }
 
@@ -270,10 +270,10 @@ namespace HueRelay
                     float el = now - hintAt;
                     float p = el % .9f / .9f;
                     float he = Ease(el / .45f);
-                    float fade = tut < 0 && el > 3.2f ? Mathf.Max(0, (3.6f - el) / .4f) : 1;
+                    float fade = tut < 0 && !UsesChainGuide && el > 3.2f ? Mathf.Max(0, (3.6f - el) / .4f) : 1;
                     board.Arc(G(a.Head), cs * (.3f + p * .9f), 0, Mathf.PI * 2, 2 * K, HueSurface.Alpha(Blue, (1 - p) * Mathf.Min(1, el / .3f) * fade));
                     wd = .14f + .06f * he * fade;
-                    if (tut < 0 && el > 3.6f)
+                    if (tut < 0 && !UsesChainGuide && el > 3.6f)
                         hintId = -1;
                 }
 
@@ -510,21 +510,24 @@ namespace HueRelay
         /// </summary>
         private void RenderTutorial()
         {
-            bool showFinger = tut >= 0 && tut < 3 && !tutWait && now >= hintAt;
+            bool showFinger = now >= hintAt && ((tut >= 0 && tut < 3 && !tutWait)
+                || (UsesChainGuide && Idle && !Over && guideArrow >= 0 && hintId == guideArrow));
             if (finger.gameObject.activeSelf != showFinger)
                 finger.gameObject.SetActive(showFinger);
             if (tut < 0)
             {
                 if (sceneView.tutorialGroup.gameObject.activeSelf)
                     sceneView.tutorialGroup.gameObject.SetActive(false);
-                return;
             }
-            float p = Bezier(Mathf.Clamp01((now - tutStepAt) / .35f), .3f, 1.4f, .5f, 1);
-            sceneView.SetTutorial(TutorialText[tut], tut, K, p);
-
-            if (tut < 3 && !tutWait && now >= hintAt)
+            else
             {
-                var a = P.arrs[TutorialIds[tut]];
+                float p = Bezier(Mathf.Clamp01((now - tutStepAt) / .35f), .3f, 1.4f, .5f, 1);
+                sceneView.SetTutorial(TutorialText[tut], tut, K, p);
+            }
+
+            if (showFinger)
+            {
+                var a = P.arrs[tut >= 0 ? TutorialIds[tut] : guideArrow];
                 float t = (now - hintAt) % .9f / .9f;
                 float y;
                 float scale = 1;
@@ -553,7 +556,7 @@ namespace HueRelay
         }
 
         /// <summary>
-        /// 绘制阶段区域模糊、背景遮罩和底部胜负卡片，并同步按钮的命中区域。
+        /// 显示胜负结算卡片，并以平稳的淡入过渡同步按钮命中区域。
         /// </summary>
         private void RenderSheet()
         {
@@ -570,12 +573,12 @@ namespace HueRelay
                 cachedModal = modalAt;
                 resultTitle = Won ? (Endless ? "Board cleared!" : "Level " + (LevelIndex + 1) + " complete!") : "Out of moves";
                 resultScore = Score.ToString();
-                resultDetail = Won ? (record ? "New best!\n" : "") + remaining + (remaining == 1 ? " move left" : " moves left") + " · +" + remaining * 50 + " bonus" : HueEngine.PC(Mask) + (HueEngine.PC(Mask) == 1 ? " arrow left" : " arrows left");
+                resultDetail = Won ? (record ? "NEW BEST" : "TOTAL SCORE") : HueEngine.PC(Mask) + (HueEngine.PC(Mask) == 1 ? " arrow left" : " arrows left") + "  ·  Give it another try";
                 resultMain = !Won ? "Try Again" : Endless ? "New Board" : IsLastCampaignLevel ? "Endless Mode" : "Next Level";
                 resultSecondary = "Retry";
             }
 
-            float p = Bezier(Mathf.Clamp01((now - modalAt) / .4f), .3f, 1.3f, .5f, 1);
+            float p = 1 - Mathf.Pow(1 - Mathf.Clamp01((now - modalAt) / .42f), 3);
             sceneView.SetResult(Won, record, K, p, resultTitle, resultScore, resultDetail, resultMain, resultSecondary);
         }
     }

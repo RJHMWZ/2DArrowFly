@@ -224,7 +224,55 @@ def geometry_signature(level):
         versions.append(tuple(sorted(arrows)))
     return (level['w'],level['h'],min(versions))
 
+def apply_guided_openings(levels):
+    """Every permitted opening move launches at least two arrows; no singleton endgame."""
+    layouts = [
+        [('B','r',[(3,1),(4,1)]), ('B','r',[(0,1),(1,1)]),
+         ('C','l',[(1,4),(0,4)]), ('C','l',[(4,4),(3,4)])],
+        [('B','u',[(4,2),(4,1)]), ('B','r',[(1,2),(2,2)]),
+         ('B','d',[(1,0),(1,1)]), ('B','l',[(3,0),(2,0)])],
+        [('B','r',[(3,0),(4,0)]), ('B','u',[(3,3),(3,2)]),
+         ('C','l',[(1,4),(0,4)]), ('C','d',[(1,1),(1,2)]),
+         ('C','l',[(4,1),(3,1),(2,1)])]
+    ]
+    for level, layout, route in zip(levels[:3], layouts, [[0,2],[0],[2,0]]):
+        level['a'] = [dict(c=c,d=d,cells=[dict(x=x,y=y) for x,y in cells]) for c,d,cells in layout]
+        level.update(guidedChains=True, par=len(route), moves=len(route)+4, solution=route)
+        valid_shape(level)
+        owners = {(c['x'],c['y']):i for i,a in enumerate(level['a']) for c in a['cells']}
+        blockers = []
+        for i,a in enumerate(level['a']):
+            x,y=a['cells'][-1]['x'],a['cells'][-1]['y'];dx,dy=DIRECTIONS[a['d']];mask=0
+            x+=dx;y+=dy
+            while 0<=x<level['w'] and 0<=y<level['h']:
+                if (x,y) in owners: mask |= 1<<owners[x,y]
+                x+=dx;y+=dy
+            blockers.append(mask)
+        board=Board(level['a'],blockers)
+        pending=[board.full];seen=set()
+        while pending:
+            mask=pending.pop()
+            if mask==0 or mask in seen: continue
+            seen.add(mask)
+            choices=[board.chain(mask,i) for i in board.free(mask) if mask.bit_count()-board.chain(mask,i).bit_count()>=2]
+            assert choices, f"Guided dead end in level {level['id']}"
+            pending.extend(choices)
+        settled=board.full
+        for i in route:
+            after=board.chain(settled,i)
+            assert i in board.free(settled) and settled.bit_count()-after.bit_count()>=2
+            settled=after
+        assert settled==0
+        level['design'].update(edges=sum(b.bit_count() for b in blockers),
+            multiBlockers=sum(b.bit_count()>1 for b in blockers), initialChoices=len(board.free(board.full)),
+            openingChain=max(board.n-board.chain(board.full,i).bit_count() for i in board.free(board.full)),
+            depth=max(_depth(i,blockers) for i in range(board.n)), turns=0)
+
+def _depth(i,blockers):
+    return 1+max((_depth(j,blockers) for j in range(len(blockers)) if blockers[i]&(1<<j)),default=0)
+
 def write_campaign(levels,seed):
+    apply_guided_openings(levels)
     # Keep the raw authoring score for auditing and expose a readable 1–100 scale.
     raw=[l['design'].get('structureScore',l['difficulty']) for l in levels]
     signatures=set()

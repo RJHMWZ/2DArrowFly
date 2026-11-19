@@ -55,6 +55,8 @@ namespace HueRelay.Editor
                             && level.moves - level.par <= previous.moves - previous.par, prefix + "Assistance increased unexpectedly.");
                     }
                     var puzzle = HueEngine.Prep(level);
+                    Require(level.guidedChains == (index < 3), prefix + "Only the first three levels should use chain guidance.");
+                    if (level.guidedChains) CheckGuidedRoutes(puzzle, puzzle.Full, new HashSet<int>());
                     Require(puzzle.arrs.All(a => !a.self), prefix + "Self-blocking arrow.");
                     int mask = puzzle.Full;
                     foreach (int selected in level.solution)
@@ -84,6 +86,21 @@ namespace HueRelay.Editor
             return memo[mask] = best;
         }
 
+        static void CheckGuidedRoutes(Puzzle puzzle, int mask, HashSet<int> seen)
+        {
+            if (mask == 0 || !seen.Add(mask)) return;
+            int choices = 0;
+            for (int i = 0; i < puzzle.n; i++)
+            {
+                if (!HueEngine.IsFree(puzzle, mask, i)) continue;
+                int after = HueEngine.Chain(puzzle, mask, i);
+                if (HueEngine.PC(mask) - HueEngine.PC(after) < 2) continue;
+                choices++;
+                CheckGuidedRoutes(puzzle, after, seen);
+            }
+            Require(choices > 0, "Guided route left a singleton/dead end in level " + puzzle.L.id);
+        }
+
         static string Signature(LevelData level)
         {
             var versions = new List<string>();
@@ -108,13 +125,14 @@ namespace HueRelay.Editor
                 game.StartLevel(index);
                 Require(game.Limit == level.moves && game.HintsRemaining == level.hints && game.ErasersRemaining == level.erasers
                     && game.ExtraMovesRemaining == level.extraMoves && game.IsLastCampaignLevel == (index == levels.Length - 1), "Runtime level configuration: " + level.id);
+                render.Invoke(game, null);
                 game.Hint();
-                Require(game.HintsRemaining == level.hints - 1 && (int)typeof(HueGame).GetField("hintId", Flags).GetValue(game) == level.solution[0], "Hint ignored authored route: " + level.id);
+                Require(game.HintsRemaining == level.hints - (level.guidedChains ? 0 : 1) && (int)typeof(HueGame).GetField("hintId", Flags).GetValue(game) == level.solution[0], "Hint ignored authored route: " + level.id);
                 game.Retry();
                 Require(game.Mask == game.P.Full && game.Limit == level.moves && game.HintsRemaining == level.hints
                     && game.ErasersRemaining == level.erasers && game.ExtraMovesRemaining == level.extraMoves, "Retry lost configuration: " + level.id);
                 render.Invoke(game, null);
-                Require(view.levelTitle.text == "Level " + level.id + "/100", "Incorrect campaign HUD: " + level.id);
+                Require(view.levelTitle.text == "Level " + level.id, "Incorrect campaign HUD: " + level.id);
                 foreach (int selected in level.solution)
                 {
                     Require((int)hintRoute.Invoke(game, null) == selected, "Hint route prefix failed: " + level.id);

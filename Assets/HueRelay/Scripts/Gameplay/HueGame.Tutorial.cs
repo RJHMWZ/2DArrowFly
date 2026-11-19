@@ -13,6 +13,40 @@ namespace HueRelay
         private float tutIdle = -1;
         private float tutStepAt;
         private Snapshot snapshot;
+        private Puzzle guidePuzzle;
+        private int guideMask = -1;
+        private int guideArrow = -1;
+        private bool UsesChainGuide => tut < 0 && !Endless && P != null && P.L.guidedChains;
+
+        private bool CanStartGuidedChain(int id)
+        {
+            return id >= 0 && id < P.n && IsFree(P, Mask, id)
+                && PC(Mask) - PC(Chain(P, Mask, id)) >= 2;
+        }
+
+        private void UpdateCampaignGuide()
+        {
+            if (!UsesChainGuide) return;
+            if (Over || !Idle || Mask == 0)
+            {
+                hintId = -1;
+                return;
+            }
+            if (guidePuzzle != P || guideMask != Mask)
+            {
+                guidePuzzle = P;
+                guideMask = Mask;
+                guideArrow = CampaignHint();
+                if (!CanStartGuidedChain(guideArrow))
+                {
+                    guideArrow = -1;
+                    for (int i = 0; i < P.n; i++)
+                        if (CanStartGuidedChain(i)) { guideArrow = i; break; }
+                }
+                hintAt = Mathf.Max(now, built + P.n * .026f + .45f);
+            }
+            hintId = guideArrow;
+        }
 
         /// <summary>
         /// 进入教学前保存的游戏快照；教学不应消耗原棋局的分数、步数或提示次数。
@@ -74,7 +108,7 @@ namespace HueRelay
         /// </summary>
         public void StartTutorial()
         {
-            if (!Idle)
+            if (!enabled || !root || P == null || LevelCount == 0 || !Idle)
                 return;
             CancelErase();
             var sn = Over ? null : new Snapshot
@@ -133,6 +167,7 @@ namespace HueRelay
             PlayerPrefs.SetInt("cc_seen", 1);
             PlayerPrefs.Save();
             var sn = snapshot;
+            guidePuzzle = null;
             timed.Clear();
             ClearEffects();
             q.Clear();

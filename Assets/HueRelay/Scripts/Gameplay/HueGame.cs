@@ -496,6 +496,8 @@ namespace HueRelay
             tut = -1;
             snapshot = null;
             progress = progressFrom = progressTarget = 0;
+            guidePuzzle = null;
+            guideMask = guideArrow = -1;
             Layout();
         }
 
@@ -675,6 +677,8 @@ namespace HueRelay
             // Only the targeted eraser animation owns exclusive board input.
             if (IsErasing)
                 return;
+            if (UsesChainGuide && (!Idle || !CanStartGuidedChain(bi)))
+                return;
             hintId = -1;
             Taps++;
             int em = Mask;
@@ -694,14 +698,14 @@ namespace HueRelay
         /// <summary>场景中重试按钮的持久化事件入口。</summary>
         public void Retry()
         {
-            if (!generating && tut < 0)
+            if (enabled && root && P != null && LevelCount > 0 && !generating && tut < 0)
                 ResetGame();
         }
 
         /// <summary>场景中帮助按钮的持久化事件入口。</summary>
         public void OpenHelp()
         {
-            if (!generating && tut < 0)
+            if (enabled && root && P != null && LevelCount > 0 && !generating && tut < 0)
                 StartTutorial();
         }
 
@@ -877,7 +881,7 @@ namespace HueRelay
                     ds = Score;
             }
 
-            progress = Mathf.LerpUnclamped(progressFrom, progressTarget, Bezier(Mathf.Clamp01((now - progressAt) / .35f), .3f, 1.4f, .5f, 1));
+            progress = Mathf.Lerp(progressFrom, progressTarget, Mathf.SmoothStep(0, 1, (now - progressAt) / .35f));
             if (Input.touchCount > 0)
             {
                 for (int i = 0; i < Input.touchCount; i++)

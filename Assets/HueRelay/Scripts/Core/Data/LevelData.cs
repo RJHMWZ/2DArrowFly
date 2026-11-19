@@ -93,6 +93,7 @@ namespace HueRelay
         [Min(0)] public int erasers = 3;
         [Min(0)] public int extraMoves = 1;
         public int[] solution;
+        public bool guidedChains;
 
         /// <summary>
         /// 棋盘列数。
