@@ -574,8 +574,8 @@ namespace HueRelay
                 resultTitle = Won ? (Endless ? "Board cleared!" : "Level " + (LevelIndex + 1) + " complete!") : "Out of moves";
                 resultScore = Score.ToString();
                 resultDetail = Won ? (record ? "NEW BEST" : "TOTAL SCORE") : HueEngine.PC(Mask) + (HueEngine.PC(Mask) == 1 ? " arrow left" : " arrows left") + "  ·  Give it another try";
-                resultMain = !Won ? "Try Again" : Endless ? "New Board" : IsLastCampaignLevel ? "Endless Mode" : "Next Level";
-                resultSecondary = "Retry";
+                resultMain = !Won ? "Retry" : Endless ? "New Board" : IsLastCampaignLevel ? "Endless Mode" : "Next Level";
+                resultSecondary = "Home";
             }
 
             float p = 1 - Mathf.Pow(1 - Mathf.Clamp01((now - modalAt) / .42f), 3);

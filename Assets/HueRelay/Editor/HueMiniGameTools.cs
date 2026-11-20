@@ -136,6 +136,12 @@ namespace HueRelay.Editor
             // Clear these again so recovery is exercised by HueGame.Awake,
             // without an editor validation or scene reopen repairing them first.
             view.movesChip = view.boardBackground = view.resultBackdrop = view.victoryFlash = null;
+            // Reproduce a live scene imported before the new menu script compiled.
+            // Do not let a fresh scene load hide missing serialized menu bindings.
+            var menu = UnityEngine.Object.FindObjectOfType<HueMainMenu>();
+            if (!menu) throw new Exception("The saved scene must contain a main menu.");
+            foreach (var field in typeof(HueMainMenu).GetFields(BindingFlags.Public | BindingFlags.Instance))
+                if (typeof(UnityEngine.Object).IsAssignableFrom(field.FieldType)) field.SetValue(menu, null);
             SessionState.SetBool(ValidationKey, true);
             EditorApplication.isPlaying = true;
         }
@@ -152,6 +158,7 @@ namespace HueRelay.Editor
         static double overlapStarted;
         static bool overlapFinished;
         static bool campaignChecked;
+        static bool menuChecked;
         static int originalMask, originalLimit;
         static double itemStarted;
         static bool winCheckStarted, winCheckFinished, sawWinSettling;
@@ -186,6 +193,11 @@ namespace HueRelay.Editor
                 var currentView = UnityEngine.Object.FindObjectOfType<HueView>();
                 if (!game.enabled || !currentView.ValidateBindings(out var bindingReason))
                     throw new Exception("Reloaded scene did not recover its required references.");
+                if (!menuChecked)
+                {
+                    HueMainMenuTools.CheckRuntime(UnityEngine.Object.FindObjectOfType<HueMainMenu>());
+                    menuChecked = true;
+                }
                 if (!campaignChecked)
                 {
                     float expectedScale = Screen.width > Screen.height ? Screen.height / 800f : Screen.width / 390f;

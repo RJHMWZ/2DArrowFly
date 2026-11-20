@@ -570,7 +570,7 @@ namespace HueRelay
             }
             float detailHeight = resultDetailHeight;
             RectTransform card = (RectTransform)resultGroup.transform;
-            float height = (win ? 370 : 250) + detailHeight;
+            float height = (win ? 370 : 308) + detailHeight;
             card.sizeDelta = new Vector2(width, height);
             card.anchorMin = card.anchorMax = card.pivot = new Vector2(.5f, .5f);
             card.anchoredPosition = new Vector2(0, -(1 - easing) * 18 * scale);
@@ -594,8 +594,10 @@ namespace HueRelay
             SetResultBox(resultScore.rectTransform, 24, win ? 128 : 70, detailWidth, 76);
             SetResultBox(resultDetail.rectTransform, 24, win ? 210 : 150, detailWidth, detailHeight);
             resultDetail.color = newRecord && win ? new Color(.12f, .58f, .43f) : new Color(.46f, .49f, .61f);
-            SetResultBox(resultButtons, 24, height - (win ? 132 : 74), detailWidth, win ? 110 : 50);
-            SetActive(resultSecondary.gameObject, win);
+            SetResultBox(resultButtons, 24, height - 132, detailWidth, 110);
+            SetResultBox(resultPrimary.GetComponent<RectTransform>(), 0, 0, detailWidth, 50);
+            SetResultBox(resultSecondary.GetComponent<RectTransform>(), 0, 60, detailWidth, 50);
+            SetActive(resultSecondary.gameObject, true);
         }
 
         private static void SetResultBox(RectTransform target, float x, float y, float width, float height)

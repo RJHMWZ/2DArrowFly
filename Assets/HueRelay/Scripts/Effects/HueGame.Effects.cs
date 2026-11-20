@@ -540,7 +540,7 @@ namespace HueRelay
                     Ring(t.to, Orange, cs * .2f, 3.2f, 3, 2);
                     bonusLanded++;
                     if (t.i == t.total - 1)
-                        After(.55f, ShowSheet);
+                        After(.15f, ShowSheet);
                     tokens.RemoveAt(i);
                     continue;
                 }

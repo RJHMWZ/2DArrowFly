@@ -22,6 +22,9 @@ namespace HueRelay
             fx = sceneView.effectsSurface;
             finger = sceneView.finger;
             sceneView.HideTransient();
+            // Upgrade the callback in an already-open scene as well as on disk.
+            sceneView.resultSecondary.onClick = new Button.ButtonClickedEvent();
+            sceneView.resultSecondary.onClick.AddListener(ReturnHome);
             return true;
         }
 

@@ -14,6 +14,8 @@ namespace HueRelay
         private const float OutputGain = 4f;
         [Range(0, 1), Tooltip("Effects volume: 0 mutes, 0.25 is the original level, 0.5 adds 6 dB, 1 adds 12 dB.")]
         public float effectsVolume = .5f;
+        public static bool SoundEnabled = true;
+        public static bool VibrationEnabled = true;
 
         [Serializable]
         private struct PlayableTone
@@ -91,6 +93,8 @@ namespace HueRelay
         /// </summary>
         private void Awake()
         {
+            SoundEnabled = PlayerPrefs.GetInt("cc_sound", 1) != 0;
+            VibrationEnabled = PlayerPrefs.GetInt("cc_vibration", 1) != 0;
 #if UNITY_LUNA || (UNITY_WEBGL && !UNITY_EDITOR)
             playableSource = GetComponent<AudioSource>();
             playableSource.playOnAwake = false;
@@ -127,6 +131,7 @@ namespace HueRelay
         /// <param name="volume">峰值音量，按原版限制为不超过 0.2。</param>
         public void Tone(double f, double d = .3, double volume = .13)
         {
+            if (!SoundEnabled) return;
 #if UNITY_LUNA || (UNITY_WEBGL && !UNITY_EDITOR)
             if (playableTones == null || playableSource == null) return;
             for (int i = 0; i < playableTones.Length; i++)
@@ -193,7 +198,7 @@ namespace HueRelay
             if (rate <= 0)
                 return;
             double dt = 1.0 / rate;
-            float outputGain = OutputGain * Mathf.Clamp01(effectsVolume);
+            float outputGain = SoundEnabled ? OutputGain * Mathf.Clamp01(effectsVolume) : 0;
             lock (gate)
             {
                 for (int n = 0; n < data.Length; n += channels)
@@ -237,6 +242,7 @@ namespace HueRelay
         /// <param name="durations">震动、停顿交替的毫秒时长，首项表示震动。</param>
         public static void Vibrate(params long[] durations)
         {
+            if (!VibrationEnabled) return;
 #if UNITY_ANDROID && !UNITY_EDITOR
             try
             {

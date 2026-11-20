@@ -16,6 +16,8 @@ public static class HueResultPresentationChecks
         try
         {
             EditorSceneManager.OpenScene("Assets/HueRelay/Scenes/HueRelay.unity");
+            var menu = UnityEngine.Object.FindObjectOfType<HueMainMenu>();
+            if (menu) menu.gameObject.SetActive(false);
             var view = UnityEngine.Object.FindObjectOfType<HueView>();
             Require(view.ValidateBindings(out var reason), reason);
             foreach (var file in new[] { "Surface", "PrimaryButton", "SuccessBadge", "Background" })
@@ -68,7 +70,7 @@ public static class HueResultPresentationChecks
                 {
                     view.HideTransient();
                     view.SetHud("420",new Color(.11f,.13f,.25f),1,75,"Best 420","Level 43","Moves 11/13",Color.black,win?1:.6f,false,115,win?12:7,12,win);
-                    view.SetResult(win,true,k,1,win?"Level 43 complete!":"Out of moves","420",win?"NEW BEST":"5 arrows left  ·  Give it another try",win?"Next Level":"Try Again","Retry");
+                    view.SetResult(win,true,k,1,win?"Level 43 complete!":"Out of moves","420",win?"NEW BEST":"5 arrows left  ·  Give it another try",win?"Next Level":"Retry","Home");
                     Canvas.ForceUpdateCanvases();
                     var progressColor = view.progressFill.GetComponent<Image>().color;
                     Require(progressColor.g > progressColor.r && progressColor.g > progressColor.b,
@@ -93,7 +95,7 @@ public static class HueResultPresentationChecks
                         && view.best.alignment == TextAnchor.MiddleCenter, "Best score must be centered under the level title.");
                     Require(!win || view.resultBackdrop.color.a==0,"Victory must not darken the stage.");
                     Require(view.resultPrimary.IsInteractable(),"Settled primary button must accept input.");
-                    Require(view.resultSecondary.gameObject.activeSelf==win,"Retry visibility is incorrect.");
+                    Require(view.resultSecondary.gameObject.activeSelf,"Home must be visible for both results.");
                     var detailRect = view.resultDetail.rectTransform;
                     Require(-detailRect.anchoredPosition.y + detailRect.rect.height <= -view.resultButtons.anchoredPosition.y,"Detail overlaps buttons.");
                     Require(view.progressFill.anchorMax.x>=0 && view.progressFill.anchorMax.x<=1,"Fill escaped track.");

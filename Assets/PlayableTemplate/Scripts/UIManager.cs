@@ -1,6 +1,6 @@
 using UnityEngine;
 
-// Scene-wide starting level and tutorial options. HueGame starts immediately.
+// Scene-wide starting level and tutorial options, applied through the main menu.
 [DefaultExecutionOrder(-800)]
 [DisallowMultipleComponent]
 public class UIManager : MonoBehaviour

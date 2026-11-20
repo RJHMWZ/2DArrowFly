@@ -341,7 +341,7 @@ namespace HueRelay
         }
 
         /// <summary>
-        /// 绑定已保存的场景组件，每次从第一关开始，并按教学标记决定是否展示首次教学。
+        /// 绑定场景组件并进入主菜单；关卡按钮按教学标记启动首次教学。
         /// </summary>
         private void Awake()
         {
@@ -373,8 +373,31 @@ namespace HueRelay
                 PlayerPrefs.Save();
             }
             StartLevel(UIManager.Instance != null ? UIManager.Instance.startingLevel - 1 : 0);
+            mainMenu = FindObjectOfType<HueMainMenu>();
+            if (mainMenu)
+                mainMenu.Show();
+            else
+                BeginFromMenu();
+        }
+
+        private HueMainMenu mainMenu;
+
+        /// <summary>关卡按钮进入游戏；首次教学在点击之后启动。</summary>
+        public void BeginFromMenu()
+        {
+            ResetGame();
             if ((UIManager.Instance == null || UIManager.Instance.showTutorial) && PlayerPrefs.GetInt("cc_seen", 0) == 0)
                 StartTutorial();
+        }
+
+        /// <summary>胜负面板的 Home 入口，清理本局动画后返回主菜单。</summary>
+        public void ReturnHome()
+        {
+            if (!sheetVisible || generating) return;
+            if (!mainMenu) mainMenu = FindObjectOfType<HueMainMenu>();
+            if (!mainMenu || !mainMenu.ResolveBindings()) return;
+            ResetGame();
+            mainMenu.Show();
         }
 
         /// <summary>
@@ -487,6 +510,7 @@ namespace HueRelay
             ClearEffects();
             sceneView.HideTransient();
             busy = Over = Won = sheetVisible = false;
+            cachedModal = -1;
             nextChain = -1;
             finishAt = -1;
             punchAt = endAt = modalAt = comboAt = mileAt = scorePop = -100;
@@ -807,13 +831,14 @@ namespace HueRelay
             Spawn(new Vector2(P.L.w * cs / 2, P.L.h * cs / 2), Blue, 5, Vector2.down);
             Ring(new Vector2(P.L.w * cs / 2, P.L.h * cs / 2), Blue, cs * .3f, 15, .9f, 3);
             Confetti(tier);
+            // 庆祝与奖励转换衔接，避免结算前长时间空等。
             if (remaining == 0)
-                After(3.4f, ShowSheet);
+                After(.8f, ShowSheet);
             else
                 for (int i = 0; i < remaining; i++)
                 {
                     int k = i;
-                    After(3.3f + i * .24f, () =>
+                    After(.65f + i * .12f, () =>
                     {
                         tokens.Add(new Token { t = now, from = chipRect.center - new Vector2(ox, oy), to = scoreRect.center - new Vector2(ox, oy), i = k, total = remaining });
                         bonusLaunched++;
@@ -851,6 +876,7 @@ namespace HueRelay
         /// </summary>
         private void Update()
         {
+            if (mainMenu && mainMenu.IsVisible) return;
             now = Time.unscaledTime;
             dt = Mathf.Min(.05f, Time.unscaledDeltaTime);
             Layout();
