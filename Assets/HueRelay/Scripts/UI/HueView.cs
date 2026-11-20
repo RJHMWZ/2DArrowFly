@@ -213,11 +213,12 @@ namespace HueRelay
                 scoreChip.pixelsPerUnitMultiplier = movesChip.pixelsPerUnitMultiplier;
                 scoreChip.raycastTarget = false;
                 var rect = scoreChip.rectTransform;
-                rect.anchorMin = score.rectTransform.anchorMin;
-                rect.anchorMax = score.rectTransform.anchorMax;
-                rect.pivot = new Vector2(.5f, .5f);
-                rect.anchoredPosition = score.rectTransform.anchoredPosition;
-                rect.sizeDelta = new Vector2(HudChipWidth, 38);
+                var movesRect = movesChip.rectTransform;
+                rect.anchorMin = new Vector2(1 - movesRect.anchorMax.x, movesRect.anchorMin.y);
+                rect.anchorMax = new Vector2(1 - movesRect.anchorMin.x, movesRect.anchorMax.y);
+                rect.pivot = new Vector2(1 - movesRect.pivot.x, movesRect.pivot.y);
+                rect.anchoredPosition = new Vector2(-movesRect.anchoredPosition.x, movesRect.anchoredPosition.y);
+                rect.sizeDelta = movesRect.sizeDelta;
             }
             if (!progressCaption && header)
                 progressCaption = header.Find("ProgressCaption")?.GetComponent<Text>();

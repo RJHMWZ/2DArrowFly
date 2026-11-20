@@ -200,6 +200,7 @@ namespace HueRelay.Editor
                 }
                 if (!campaignChecked)
                 {
+                    if (!HuePauseMenuChecks.Tick(game,currentView)) return;
                     float expectedScale = Screen.width > Screen.height ? Screen.height / 800f : Screen.width / 390f;
                     if (Mathf.Abs(currentView.canvas.scaleFactor - expectedScale) > .001f)
                         throw new Exception("Recovered startup did not apply the game canvas scale.");
@@ -210,14 +211,14 @@ namespace HueRelay.Editor
                     var root = Field("root").GetValue(game);
                     game.enabled = false;
                     Field("root").SetValue(game, null);
-                    currentView.helpButton.onClick.Invoke();
+                    game.OpenHelp();
                     currentView.retryButton.onClick.Invoke();
                     game.StartTutorial();
                     if (game.P != puzzle || game.TutorialStepIndex >= 0)
                         throw new Exception("UI callbacks ran after failed initialization.");
                     Field("root").SetValue(game, root);
                     game.enabled = true;
-                    currentView.helpButton.onClick.Invoke();
+                    game.OpenHelp();
                     if (game.TutorialStepIndex != 0)
                         throw new Exception("Help button did not open the tutorial in a legacy scene.");
                     game.EndTutorial();

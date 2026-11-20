@@ -1,0 +1,35 @@
+{
+  "deviceOrientation": "portrait",
+  "menuButtonStyle": "dark",
+  "enableWebGL2": true,
+  "gameEngine": "unity",
+  "originalWasmMd5": "12590f08f1ae89dcfd98c8772fd0f166",
+  "wasmCodeSize": 32203418,
+  "enableIOSHighPerformanceMode": true,
+  "enableIOSHighPerformanceModePlus": true,
+  "subpackages": [
+    {
+      "name": "data-package",
+      "root": "data-package/"
+    },
+    {
+      "name": "wasmcode",
+      "root": "wasmcode/"
+    },
+    {
+      "name": "wasmcode1",
+      "root": "wasmcode1/"
+    },
+    {
+      "name": "wasmcode-archive",
+      "root": "wasmcode-archive/"
+    }
+  ],
+  "plugins": {
+    "UnityPlugin": {
+      "version": "0.1.0",
+      "provider": "tt674511f8f84ea91612"
+    }
+  },
+  "sdkVersion": "1.1.6-Release"
+}

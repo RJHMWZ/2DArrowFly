@@ -366,7 +366,7 @@ namespace HueRelay
                 return;
             }
             if (!string.IsNullOrEmpty(collection.campaignId)) campaignBestPrefix = "cc_" + collection.campaignId + "_b";
-            now = Time.unscaledTime;
+            now = GameTime;
             if (PlayerPrefs.HasKey("cc_prog"))
             {
                 PlayerPrefs.DeleteKey("cc_prog");
@@ -393,9 +393,11 @@ namespace HueRelay
         /// <summary>胜负面板的 Home 入口，清理本局动画后返回主菜单。</summary>
         public void ReturnHome()
         {
-            if (!sheetVisible || generating) return;
+            if ((!sheetVisible && !IsPaused) || generating) return;
             if (!mainMenu) mainMenu = FindObjectOfType<HueMainMenu>();
             if (!mainMenu || !mainMenu.ResolveBindings()) return;
+            ResumePause();
+            if (tut >= 0) EndTutorial();
             ResetGame();
             mainMenu.Show();
         }
@@ -490,10 +492,11 @@ namespace HueRelay
         /// </summary>
         public void ResetGame()
         {
+            ResumePause();
             StopAllCoroutines();
             generating = false;
             timed.Clear();
-            now = Time.unscaledTime;
+            now = GameTime;
             built = now;
             Mask = P.Full;
             Taps = Score = 0;
@@ -672,6 +675,7 @@ namespace HueRelay
         /// <param name="bi">命中的箭头编号。</param>
         public void TapArrow(int bi)
         {
+            if (IsPaused) return;
             if (IsChoosingErase)
             {
                 SelectEraseArrow(bi);
@@ -765,7 +769,7 @@ namespace HueRelay
         /// <param name="p">相对于整个界面的逻辑像素点击位置。</param>
         private void Pointer(Vector2 p)
         {
-            if (generating || sceneView.BlocksBoardPointer(p, pixelScale))
+            if (IsPaused || Time.frameCount == resumedFrame || generating || sceneView.BlocksBoardPointer(p, pixelScale))
                 return;
             if (p.x < ox || p.x > ox + P.L.w * cs || p.y < oy || p.y > oy + P.L.h * cs)
                 return;
@@ -877,7 +881,13 @@ namespace HueRelay
         private void Update()
         {
             if (mainMenu && mainMenu.IsVisible) return;
-            now = Time.unscaledTime;
+            if (Input.GetKeyDown(KeyCode.Escape))
+            {
+                if (IsPaused) ResumePause(); else OpenPause();
+                return;
+            }
+            if (IsPaused) { Layout(); Render(); return; }
+            now = GameTime;
             dt = Mathf.Min(.05f, Time.unscaledDeltaTime);
             Layout();
             // 先移除再执行；即使回调触发重置，旧任务也不会在随后再次执行。

@@ -16,7 +16,7 @@ namespace HueRelay
 
         // Clearing the final arrow already commits the board to a win, including
         // the settling interval before the victory flags are updated.
-        private bool PowerUpsReady => Mask != 0 && !generating && tut < 0 && !UsesChainGuide && (!Over || !Won) && Idle;
+        private bool PowerUpsReady => !IsPaused && Mask != 0 && !generating && tut < 0 && !UsesChainGuide && (!Over || !Won) && Idle;
         public bool CanHint => PowerUpsReady && !IsChoosingErase && !Over && hints > 0 && Taps < Limit;
         public bool CanErase => PowerUpsReady && eraseUses > 0;
         public bool CanAddMoves => PowerUpsReady && !IsChoosingErase && extraMoveUses > 0;
@@ -50,7 +50,7 @@ namespace HueRelay
             IsChoosingErase = false;
             eraseUses--;
             erasingArrow = id;
-            now = eraseStarted = Time.unscaledTime;
+            now = eraseStarted = GameTime;
             eraseDuration = Mathf.Clamp((P.arrs[id].cells.Length - 1) * .08f, .65f, 1.25f);
             finishAt = -1;
             audioBus.Tone(520, .12, .045);
@@ -107,7 +107,7 @@ namespace HueRelay
 
         private void ResumeBoard()
         {
-            now = Time.unscaledTime;
+            now = GameTime;
             busy = Over = Won = sheetVisible = false;
             finishAt = -1;
             remaining = bonusLaunched = bonusLanded = 0;
