@@ -15,6 +15,7 @@ namespace HueRelay
         public Button levelButton;
         public Text levelLabel;
         public Button settingsButton;
+        public RectTransform settingsSafeArea;
         public Text settingsLabel;
         public GameObject settingsOverlay;
         public RectTransform settingsCard;
@@ -36,7 +37,25 @@ namespace HueRelay
             if (!logo) logo = transform.Find("TitleLogoPlaceholder") as RectTransform;
             if (!levelButton) levelButton = Find<Button>("LevelButton");
             if (!levelLabel) levelLabel = Find<Text>("LevelButton/Label");
-            if (!settingsButton) settingsButton = Find<Button>("SettingsButton");
+            if (!settingsSafeArea) settingsSafeArea = transform.Find("SettingsSafeArea") as RectTransform;
+            if (!settingsButton) settingsButton = settingsSafeArea
+                ? settingsSafeArea.GetComponentInChildren<Button>(true) : Find<Button>("SettingsButton");
+            // Upgrade an already-open scene after script reload. Only the parent
+            // receives the inset, so the button's authored transform stays editable.
+            if (!settingsSafeArea && settingsButton && settingsButton.transform.parent == transform)
+            {
+                settingsSafeArea = new GameObject("SettingsSafeArea", typeof(RectTransform)).GetComponent<RectTransform>();
+                settingsSafeArea.gameObject.layer = settingsButton.gameObject.layer;
+                settingsSafeArea.SetParent(transform, false);
+                settingsSafeArea.SetSiblingIndex(settingsButton.transform.GetSiblingIndex());
+                settingsSafeArea.anchorMin = Vector2.zero;
+                settingsSafeArea.anchorMax = Vector2.one;
+                settingsSafeArea.offsetMin = settingsSafeArea.offsetMax = Vector2.zero;
+                var settingsRect = settingsButton.transform as RectTransform;
+                Vector2 authoredPosition = settingsRect.anchoredPosition;
+                settingsRect.SetParent(settingsSafeArea, false);
+                settingsRect.anchoredPosition = authoredPosition;
+            }
             if (!settingsLabel) settingsLabel = Find<Text>("SettingsLabel");
             if (!settingsOverlay)
             {
@@ -49,7 +68,7 @@ namespace HueRelay
             if (!vibrationButton) vibrationButton = Find<Button>("SettingsOverlay/SettingsCard/VibrationToggle");
             if (!vibrationState) vibrationState = Find<Text>("SettingsOverlay/SettingsCard/VibrationToggle/Label");
             if (!closeButton) closeButton = Find<Button>("SettingsOverlay/SettingsCard/CloseSettingsButton");
-            var gearNode = transform.Find("SettingsButton/GearIcon");
+            var gearNode = settingsButton ? settingsButton.transform.Find("GearIcon") : null;
             var gear = gearNode ? gearNode.GetComponent<HueSettingsIcon>() : null;
             if (gearNode && !gear) gear = gearNode.gameObject.AddComponent<HueSettingsIcon>();
             if (gear && !gear.GetComponent<CanvasRenderer>())
@@ -58,7 +77,7 @@ namespace HueRelay
             }
             if (gear) { gear.color = HueGame.Mute; gear.raycastTarget = false; gear.SetAllDirty(); }
             return game && view && menuCanvas && scaler && logo && levelButton && levelLabel
-                && settingsButton && settingsOverlay && settingsCard
+                && settingsButton && settingsSafeArea && settingsOverlay && settingsCard
                 && soundButton && soundState && vibrationButton && vibrationState && closeButton;
         }
 
@@ -100,11 +119,13 @@ namespace HueRelay
         public void Show()
         {
             if (!ResolveBindings()) return;
+            HueSafeArea.Refresh();
             BindButtons();
             CloseSettings();
             levelLabel.text = game.Endless ? "Endless Mode" : "Level " + (game.LevelIndex + 1);
             SetCanvas(view.canvas, false);
             SetCanvas(menuCanvas, true);
+            Layout(Screen.width, Screen.height, Screen.safeArea);
         }
 
         public void Play()
@@ -153,7 +174,7 @@ namespace HueRelay
 
         private void Update()
         {
-            if (!menuCanvas || !scaler || !logo || !levelButton || !settingsButton || !settingsCard)
+            if (!menuCanvas || !scaler || !logo || !levelButton || !settingsButton || !settingsSafeArea || !settingsCard)
             {
                 if (!ResolveBindings()) return;
                 BindButtons();
@@ -168,13 +189,14 @@ namespace HueRelay
             float scale = Mathf.Min(width / 390f, height / 640f);
             scaler.scaleFactor = scale;
             float w = width / scale, h = height / scale;
-            float top = (height - safeArea.yMax) / scale, bottom = safeArea.yMin / scale;
+            float top = HueSafeArea.TopPixels(width, height, safeArea) / scale, bottom = safeArea.yMin / scale;
             float usable = h - top - bottom;
             Place(logo, w * .5f, top + usable * .275f, 300, 112);
             logo.localScale = Vector3.one;
             Place(levelButton.GetComponent<RectTransform>(), w * .5f, top + usable * .72f, 296, 72);
-            // SettingsButton uses its scene-authored RectTransform. Keep its
-            // anchors, position and size editable in both edit and play mode.
+            // Inset the parent, keeping the button's scene-authored position/size.
+            settingsSafeArea.offsetMin = Vector2.zero;
+            settingsSafeArea.offsetMax = new Vector2(0, -top);
             if (settingsLabel && settingsLabel.gameObject.activeSelf) settingsLabel.gameObject.SetActive(false);
             Place(settingsCard, w * .5f, top + usable * .5f, 326, 292);
         }

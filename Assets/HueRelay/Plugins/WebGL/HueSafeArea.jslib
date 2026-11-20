@@ -1,21 +1,26 @@
 mergeInto(LibraryManager.library, {
-    HueTT_GetSafeTopRatio: function () {
+    // Return the notch/status-bar inset as a fraction of logical screen height.
+    // Capsule avoidance belongs to the HUD layout, not this inset.
+    HueTT_SafeAreaTopRatio: function () {
         try {
-            if (typeof tt === "undefined" || !tt.getSystemInfoSync) return 0;
-            var info = tt.getSystemInfoSync();
-            if (!(info.screenHeight > 0)) return 0;
-            var safeTop = Math.max(0, info.statusBarHeight || 0, info.safeArea ? info.safeArea.top || 0 : 0);
-            // Older hosts can omit the capsule API; reserve a toolbar band then.
-            var bottom = safeTop + 44;
-            if (typeof tt.getMenuButtonLayout === "function") {
+            var choices = [typeof jssdk !== "undefined" ? jssdk : null,
+                typeof tt !== "undefined" ? tt : null,
+                typeof TTMinis !== "undefined" && TTMinis ? TTMinis.game : null];
+            for (var c = 0; c < choices.length; c++) {
+                var api = choices[c];
+                if (!api || typeof api.getSystemInfoSync !== "function") continue;
                 try {
-                    var menu = tt.getMenuButtonLayout();
-                    if (menu && menu.bottom > 0) bottom = Math.max(safeTop, menu.bottom);
-                } catch (error) { /* Retain the safe-area fallback on older hosts. */ }
+                    var info = api.getSystemInfoSync();
+                    var area = info && info.safeArea;
+                    if (!area || typeof info.screenHeight !== "number" || !isFinite(info.screenHeight)
+                        || !(info.screenHeight > 0) || typeof area.top !== "number" || !isFinite(area.top)
+                        || area.top < 0 || area.top > info.screenHeight * .2) continue;
+                    return area.top / info.screenHeight;
+                } catch (error) { /* Try the next available host namespace. */ }
             }
-            return Math.max(0, Math.min(1, bottom / info.screenHeight));
+            return -1;
         } catch (error) {
-            return 0;
+            return -1;
         }
     }
 });

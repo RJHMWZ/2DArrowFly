@@ -385,6 +385,7 @@ namespace HueRelay
         /// <summary>关卡按钮进入游戏；首次教学在点击之后启动。</summary>
         public void BeginFromMenu()
         {
+            HueSafeArea.Refresh();
             ResetGame();
             if ((UIManager.Instance == null || UIManager.Instance.showTutorial) && PlayerPrefs.GetInt("cc_seen", 0) == 0)
                 StartTutorial();

@@ -7,13 +7,6 @@ namespace HueRelay
     /// <summary>绑定固定场景组件，并按原 HTML 的逻辑像素计算关卡布局。</summary>
     public sealed partial class HueGame
     {
-#if IVY_SDK_TT && UNITY_WEBGL && !UNITY_EDITOR && !UNITY_LUNA
-        [System.Runtime.InteropServices.DllImport("__Internal")]
-        private static extern float HueTT_GetSafeTopRatio();
-        private float ttSafeTopRatio;
-        private float ttSafeAreaCheckAt = -1;
-        private Vector2 ttSafeAreaScreen;
-#endif
         /// <summary>绑定场景界面和音频；旧场景的装饰节点由 HueView 兼容。</summary>
         private bool BindScene()
         {
@@ -51,6 +44,16 @@ namespace HueRelay
             LayoutViewport(Screen.width, Screen.height, Screen.safeArea);
         }
 
+        private void OnApplicationFocus(bool focused)
+        {
+            if (focused) HueSafeArea.Refresh();
+        }
+
+        private void OnApplicationPause(bool paused)
+        {
+            if (!paused) HueSafeArea.Refresh();
+        }
+
         private void LayoutViewport(float width, float height, Rect safeArea)
         {
             pixelScale = width > height ? height / 800f : width / 390f;
@@ -81,19 +84,8 @@ namespace HueRelay
 #endif
             if (!rootScaler) rootScaler = root.GetComponent<CanvasScaler>();
             rootScaler.scaleFactor = pixelScale;
-            safeTop = (height - safeArea.yMax) / pixelScale;
+            safeTop = HueSafeArea.TopPixels(width, height, safeArea) / pixelScale;
             safeBottom = safeArea.yMin / pixelScale;
-#if IVY_SDK_TT && UNITY_WEBGL && !UNITY_EDITOR && !UNITY_LUNA
-            // TT reports UI coordinates in logical screen units. Use a ratio so
-            // device pixel density and WebGL render resolution cannot double-scale it.
-            if (ttSafeAreaScreen != new Vector2(width, height) || Time.unscaledTime >= ttSafeAreaCheckAt)
-            {
-                ttSafeTopRatio = Mathf.Clamp01(HueTT_GetSafeTopRatio());
-                ttSafeAreaScreen = new Vector2(width, height);
-                ttSafeAreaCheckAt = Time.unscaledTime + 1;
-            }
-            safeTop = Mathf.Max(safeTop, ttSafeTopRatio * height / pixelScale);
-#endif
             K = Mathf.Clamp(Mathf.Min(viewWidth / 390, viewHeight / 800), .75f, 3.5f);
             appW = Mathf.Min(viewWidth, 460 * K);
             appX = (viewWidth - appW) * .5f;

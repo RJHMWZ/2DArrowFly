@@ -50,7 +50,9 @@ namespace HueRelay.Editor
             shadow.effectColor = new Color(.29f, .42f, .97f, .16f);
             shadow.effectDistance = new Vector2(0, -4);
 
-            menu.settingsButton = Button("SettingsButton", root, Color.white, "", HueGame.Mute, 16, 52, 52);
+            menu.settingsSafeArea = Node("SettingsSafeArea", root);
+            Stretch(menu.settingsSafeArea);
+            menu.settingsButton = Button("SettingsButton", menu.settingsSafeArea, Color.white, "", HueGame.Mute, 16, 52, 52);
             // Initial placement only; HueMainMenu never overwrites this transform.
             var settingsRect = menu.settingsButton.GetComponent<RectTransform>();
             settingsRect.anchorMin = settingsRect.anchorMax = new Vector2(0, 1);
