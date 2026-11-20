@@ -2220,7 +2220,7 @@ RectTransform:
   m_LocalEulerAnglesHint: {x: 0, y: 0, z: 0}
   m_AnchorMin: {x: 0, y: 1}
   m_AnchorMax: {x: 0, y: 1}
-  m_AnchoredPosition: {x: 33.600002, y: -28.800001}
+  m_AnchoredPosition: {x: 33.600002, y: 14}
   m_SizeDelta: {x: 421.99997, y: 180}
   m_Pivot: {x: 0, y: 1}
 --- !u!1 &467170529
@@ -3027,7 +3027,7 @@ MonoBehaviour:
   levelButton: {fileID: 494087938}
   levelLabel: {fileID: 1409605079}
   settingsButton: {fileID: 1623539582}
-  settingsSafeArea: {fileID: 8300000002}
+  settingsSafeArea: {fileID: 0}
   settingsLabel: {fileID: 0}
   settingsOverlay: {fileID: 1002092048}
   settingsCard: {fileID: 1587703341}
