@@ -37,12 +37,10 @@ namespace HueRelay.Editor
             bg.raycastTarget = true;
 
             menu.logo = Node("TitleLogoPlaceholder", root);
-            var arrow = Image("ArrowMark", menu.logo, Color.white, false);
-            arrow.sprite = view.retryButton.GetComponentsInChildren<Image>(true)[1].sprite;
-            arrow.preserveAspect = true;
-            Box(arrow.rectTransform, -100, 0, 88, 88);
-            Text("TitleTop", menu.logo, "GAME", 48, HueGame.Ink, 43, 26, 200, 60);
-            Text("TitleBottom", menu.logo, "LOGO", 48, HueGame.Blue, 43, -26, 200, 60);
+            var titleLogo = Image("ComboArrowLogo", menu.logo, Color.white, false);
+            titleLogo.sprite = AssetDatabase.LoadAssetAtPath<Sprite>("Assets/HueRelay/Art/Brand/ComboArrowLogo.png");
+            titleLogo.preserveAspect = true;
+            Stretch(titleLogo.rectTransform);
 
             menu.levelButton = Button("LevelButton", root, HueGame.Blue, "Level 1", Color.white, 28, 296, 72);
             menu.levelLabel = menu.levelButton.GetComponentInChildren<Text>();
@@ -197,11 +195,12 @@ namespace HueRelay.Editor
 
         public static void CheckRuntime(HueMainMenu menu)
         {
-            if (!menu || !menu.IsVisible || menu.view.canvas.enabled || menu.game.TutorialStepIndex >= 0)
-                throw new Exception("Startup must show the menu and defer gameplay/tutorial.");
+            if (!menu || menu.IsVisible || !menu.view.canvas.enabled || menu.game.TutorialStepIndex >= 0)
+                throw new Exception("Returning startup must show gameplay and hide the menu after tutorial completion.");
+            menu.Show();
             if (menu.GetComponentsInChildren<Button>().Length != 2)
                 throw new Exception("Main menu must expose exactly two buttons.");
-            if (menu.levelLabel.text != "Level " + (menu.game.LevelIndex + 1))
+            if (menu.levelLabel.text != menu.game.ResumeButtonLabel)
                 throw new Exception("Menu level label is incorrect.");
             // Reproduce UnityEvents losing runtime callbacks across reload while
             // all component fields are still populated. Show must rebind them.
@@ -236,7 +235,7 @@ namespace HueRelay.Editor
             if (menu.menuCanvas.GetComponent<GraphicRaycaster>().enabled
                 || !menu.view.canvas.GetComponent<GraphicRaycaster>().enabled)
                 throw new Exception("Hidden menu is still intercepting gameplay clicks.");
-            if ((UIManager.Instance == null || UIManager.Instance.showTutorial) && PlayerPrefs.GetInt("cc_seen", 0) == 0
+            if ((UIManager.Instance == null || UIManager.Instance.showTutorial) && !menu.game.HasCompletedTutorial
                 && menu.game.TutorialStepIndex != 0)
                 throw new Exception("First play did not launch the tutorial.");
             menu.game.EndTutorial();
@@ -271,7 +270,7 @@ namespace HueRelay.Editor
                 menu.game.EndTutorial();
             }
             Directory.CreateDirectory("Logs/MainMenu");
-            File.WriteAllText("Logs/MainMenu/checks.txt", "PASS: missing references recovered; callbacks restored after reload; startup and tutorial deferred; settings and saved preferences; hidden canvases do not intercept input; win Home, failure Retry/Home, and gameplay re-entry after both results.\n");
+            File.WriteAllText("Logs/MainMenu/checks.txt", "PASS: direct gameplay startup; Home menu shows saved entry; callbacks restored; settings and preferences; hidden canvases do not intercept input; win Home, failure Retry/Home and gameplay re-entry.\n");
         }
     }
 }

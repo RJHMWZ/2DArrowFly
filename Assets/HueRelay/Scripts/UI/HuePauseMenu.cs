@@ -8,7 +8,7 @@ namespace HueRelay
     {
         public RectTransform card;
         public Text levelLabel;
-        public Button continueButton, tutorialButton, retryButton, homeButton;
+        public Button continueButton, tutorialButton, retryButton, settingsButton, homeButton;
         private HueGame game;
 
         public bool ResolveBindings()
@@ -20,7 +20,24 @@ namespace HueRelay
             if (!tutorialButton) tutorialButton = card.Find("TutorialButton")?.GetComponent<Button>();
             if (!retryButton) retryButton = card.Find("RetryButton")?.GetComponent<Button>();
             if (!homeButton) homeButton = card.Find("HomeButton")?.GetComponent<Button>();
-            return levelLabel && continueButton && tutorialButton && retryButton && homeButton;
+            if (levelLabel) levelLabel.gameObject.SetActive(false);
+            if (!settingsButton) settingsButton = card.Find("SettingsButton")?.GetComponent<Button>();
+            // Recover an already-open scene after script reload. Authored scenes
+            // contain this button; only older scenes need the one-time upgrade.
+            if (!settingsButton && homeButton && continueButton && tutorialButton && retryButton)
+            {
+                settingsButton = Instantiate(homeButton, card, false);
+                settingsButton.name = "SettingsButton";
+                settingsButton.onClick = new Button.ButtonClickedEvent();
+                settingsButton.GetComponentInChildren<Text>(true).text = "Settings";
+                var buttons = new[] { continueButton, tutorialButton, retryButton, settingsButton, homeButton };
+                for (int i = 0; i < buttons.Length; i++)
+                {
+                    var rect = (RectTransform)buttons[i].transform;
+                    rect.anchoredPosition = new Vector2(rect.anchoredPosition.x, -(82 + i * 56));
+                }
+            }
+            return continueButton && tutorialButton && retryButton && settingsButton && homeButton;
         }
 
         public void Show(HueGame owner, bool canTeach)
@@ -30,8 +47,8 @@ namespace HueRelay
             Bind(continueButton, game.ResumePause);
             Bind(tutorialButton, game.TutorialFromPause);
             Bind(retryButton, game.RetryFromPause);
+            Bind(settingsButton, game.OpenSettingsFromPause);
             Bind(homeButton, game.ReturnHome);
-            levelLabel.text = game.Endless ? "Endless Mode" : "Level " + (game.LevelIndex + 1);
             tutorialButton.interactable = canTeach;
             gameObject.SetActive(true);
             transform.SetAsLastSibling();

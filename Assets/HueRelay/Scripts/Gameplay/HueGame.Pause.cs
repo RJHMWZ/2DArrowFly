@@ -23,7 +23,7 @@ namespace HueRelay
 
         public void ResumePause()
         {
-            if (!IsPaused) return;
+            if (!IsPaused || (mainMenu && mainMenu.IsPauseSettingsOpen)) return;
             pausedDuration += Time.unscaledTime - pauseStarted;
             IsPaused = false;
             resumedFrame = Time.frameCount;
@@ -32,7 +32,7 @@ namespace HueRelay
 
         public void RetryFromPause()
         {
-            if (!IsPaused) return;
+            if (!IsPaused || (mainMenu && mainMenu.IsPauseSettingsOpen)) return;
             ResumePause();
             if (tut >= 0) EndTutorial();
             Retry();
@@ -40,9 +40,18 @@ namespace HueRelay
 
         public void TutorialFromPause()
         {
-            if (!IsPaused || tut >= 0 || !Idle) return;
+            if (!IsPaused || tut >= 0 || !Idle || (mainMenu && mainMenu.IsPauseSettingsOpen)) return;
             ResumePause();
             OpenHelp();
+        }
+
+        public void OpenSettingsFromPause()
+        {
+            if (!IsPaused) return;
+            if (!mainMenu) mainMenu = FindObjectOfType<HueMainMenu>(true);
+            if (!mainMenu) return;
+            mainMenu.gameObject.SetActive(true);
+            mainMenu.OpenSettingsFromPause();
         }
     }
 }

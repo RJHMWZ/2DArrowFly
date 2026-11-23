@@ -150,6 +150,7 @@ namespace HueRelay.Editor
             if (!menu) throw new Exception("The saved scene must contain a main menu.");
             foreach (var field in typeof(HueMainMenu).GetFields(BindingFlags.Public | BindingFlags.Instance))
                 if (typeof(UnityEngine.Object).IsAssignableFrom(field.FieldType)) field.SetValue(menu, null);
+            HueStartupProgressChecks.Prepare();
             SessionState.SetBool(ValidationKey, true);
             EditorApplication.isPlaying = true;
         }
@@ -197,10 +198,12 @@ namespace HueRelay.Editor
             {
                 var manager = UIManager.Instance;
                 var game = UnityEngine.Object.FindObjectOfType<HueGame>();
+                if (HueStartupProgressChecks.WaitingForReload(game)) return;
                 if (!manager || !game || game.P == null) throw new Exception("Game did not initialize.");
                 var currentView = UnityEngine.Object.FindObjectOfType<HueView>();
                 if (!game.enabled || !currentView.ValidateBindings(out var bindingReason))
                     throw new Exception("Reloaded scene did not recover its required references.");
+                if (!HueStartupProgressChecks.Tick(game,currentView)) return;
                 if (!menuChecked)
                 {
                     HueMainMenuTools.CheckRuntime(UnityEngine.Object.FindObjectOfType<HueMainMenu>());

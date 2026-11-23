@@ -52,6 +52,7 @@ namespace HueRelay
         private void OnApplicationPause(bool paused)
         {
             if (!paused) HueSafeArea.Refresh();
+            else PlayerPrefs.Save();
         }
 
         private void LayoutViewport(float width, float height, Rect safeArea)

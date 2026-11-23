@@ -12,6 +12,7 @@ namespace HueRelay
         private bool tutWait;
         private float tutIdle = -1;
         private float tutStepAt;
+        private int tutorialAdvancedFrame = -1;
         private Snapshot snapshot;
         private Puzzle guidePuzzle;
         private int guideMask = -1;
@@ -66,9 +67,9 @@ namespace HueRelay
             "Tap an arrow to send it flying.",
             "Blocked arrows cannot move.",
             "Clear the orange arrow first.",
-            "Matching colors chain for free.",
-            "Longer chains earn more points.",
-            "Clear the board before moves run out."
+            "Matching colors chain for free.\nTap anywhere to continue.",
+            "Longer chains earn more points.\nTap anywhere to continue.",
+            "Clear the board before moves run out.\nTap anywhere to play."
         };
         private static readonly int[] TutorialIds =
         {
@@ -162,7 +163,10 @@ namespace HueRelay
         /// </summary>
         public void EndTutorial()
         {
-            PlayerPrefs.SetInt("cc_seen", 1);
+            if (tut < 0) return;
+            bool enterEndless = resumeEndlessAfterTutorial;
+            resumeEndlessAfterTutorial = false;
+            PlayerPrefs.SetInt(tutorialSeenKey, 1);
             PlayerPrefs.Save();
             var sn = snapshot;
             guidePuzzle = null;
@@ -192,6 +196,7 @@ namespace HueRelay
             }
             else
                 StartLevel(LevelIndex);
+            if (enterEndless) StartEndless();
         }
     }
 }

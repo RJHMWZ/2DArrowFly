@@ -8,6 +8,11 @@ namespace HueRelay
     /// </summary>
     public sealed partial class HueGame
     {
+        [Header("Victory Effects")]
+        [Min(0)]
+        [Tooltip("每次胜利彩点的总数量上限，包含左右喷射和顶部飘落。设为 0 可关闭彩点；修改后在下一次胜利时生效。")]
+        public int maxVictoryParticles = 60;
+
         /// <summary>
         /// 沿原折线滑动并沿箭头方向延伸的飞行状态；s 的单位为网格边长。
         /// </summary>
@@ -386,15 +391,25 @@ namespace HueRelay
                 25,
                 40
             }[tier - 1];
+            // Share one total budget between both side jets and all rain batches.
+            // Keep the original tier's proportions instead of filling one side first.
+            int originalTotal = n * 2 + Mathf.CeilToInt(rain / 10f) * 10;
+            int budget = Mathf.Min(Mathf.Max(0, maxVictoryParticles), originalTotal);
+            n = budget * n / originalTotal;
+            int rainBudget = budget - n * 2;
             After(.9f, () => ConfettiFire(1, n));
             After(1.2f, () => ConfettiFire(-1, n));
             for (int k = 0; k < 10; k++)
+            {
+                int batchCount = rainBudget / 10 + (k < rainBudget % 10 ? 1 : 0);
+                if (batchCount == 0) continue;
                 After(1.5f + k * .17f, () =>
                 {
-                    int m = Mathf.CeilToInt(rain / 10f);
+                    int m = batchCount;
                     for (int i = 0; i < m; i++)
                         MakeConf(new Vector2((i + Rand) / m * viewWidth, -10), new Vector2((Rand - .5f) * 80, viewHeight * .2f), 2.2f, Rand * .2f);
                 });
+            }
         }
 
         /// <summary>

@@ -61,10 +61,10 @@ namespace HueRelay.Editor
             card.pixelsPerUnitMultiplier = source.pixelsPerUnitMultiplier;
             card.color = Color.white; card.raycastTarget = true;
             Label("Title",pause.card,view.resultTitle,"Paused",24,HueGame.Ink,24,24,278,38);
-            pause.levelLabel = Label("LevelLabel",pause.card,view.resultDetail,"Level 1",14,HueGame.Mute,24,68,278,24);
-            pause.continueButton = Button("ContinueButton",pause.card,view.resultPrimary,"Continue",120);
-            pause.tutorialButton = Button("TutorialButton",pause.card,view.resultSecondary,"Tutorial",182);
-            pause.retryButton = Button("RetryButton",pause.card,view.resultSecondary,"Retry",244);
+            pause.continueButton = Button("ContinueButton",pause.card,view.resultPrimary,"Continue",82);
+            pause.tutorialButton = Button("TutorialButton",pause.card,view.resultSecondary,"Tutorial",138);
+            pause.retryButton = Button("RetryButton",pause.card,view.resultSecondary,"Retry",194);
+            pause.settingsButton = Button("SettingsButton",pause.card,view.resultSecondary,"Settings",250);
             pause.homeButton = Button("HomeButton",pause.card,view.resultSecondary,"Home",306);
             pause.Hide();
             EditorSceneManager.MarkSceneDirty(game.gameObject.scene);
@@ -107,6 +107,21 @@ namespace HueRelay.Editor
             {
                 EditorSceneManager.OpenScene(HueMiniGameTools.ScenePath);
                 Build(); EditorSceneManager.SaveOpenScenes();
+                EditorApplication.Exit(0);
+            }
+            catch(Exception e) { Debug.LogException(e); EditorApplication.Exit(1); }
+        }
+
+        public static void BatchUpgrade()
+        {
+            try
+            {
+                EditorSceneManager.OpenScene(HueMiniGameTools.ScenePath);
+                var view = UnityEngine.Object.FindObjectOfType<HueView>();
+                var pause = view.canvas.GetComponentInChildren<HuePauseMenu>(true);
+                if (!pause || !pause.ResolveBindings()) throw new Exception("Pause bindings missing.");
+                EditorSceneManager.MarkSceneDirty(pause.gameObject.scene);
+                EditorSceneManager.SaveOpenScenes();
                 EditorApplication.Exit(0);
             }
             catch(Exception e) { Debug.LogException(e); EditorApplication.Exit(1); }

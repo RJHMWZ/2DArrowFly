@@ -147,7 +147,7 @@ namespace HueRelay
         }
 
         private LevelData[] levels;
-        private string campaignBestPrefix = "cc_b";
+        private string bestScoreKey = "cc_global_best_v1";
         public int LevelCount => levels != null ? levels.Length : 0;
         public bool IsLastCampaignLevel => !Endless && LevelIndex == LevelCount - 1;
         private int par;
@@ -341,7 +341,7 @@ namespace HueRelay
         }
 
         /// <summary>
-        /// 绑定场景组件并进入主菜单；关卡按钮按教学标记启动首次教学。
+        /// 绑定场景并恢复闯关进度；首次启动直接进入完整教学，其后直接进入游戏。
         /// </summary>
         private void Awake()
         {
@@ -365,35 +365,42 @@ namespace HueRelay
                 enabled = false;
                 return;
             }
-            if (!string.IsNullOrEmpty(collection.campaignId)) campaignBestPrefix = "cc_" + collection.campaignId + "_b";
+            LoadGlobalBest(collection.campaignId);
             now = GameTime;
-            if (PlayerPrefs.HasKey("cc_prog"))
-            {
-                PlayerPrefs.DeleteKey("cc_prog");
-                PlayerPrefs.Save();
-            }
-            StartLevel(UIManager.Instance != null ? UIManager.Instance.startingLevel - 1 : 0);
-            mainMenu = FindObjectOfType<HueMainMenu>();
-            if (mainMenu)
-                mainMenu.Show();
-            else
-                BeginFromMenu();
+            LoadCampaignProgress(collection.campaignId);
+            mainMenu = FindObjectOfType<HueMainMenu>(true);
+            if (mainMenu) mainMenu.gameObject.SetActive(true);
+            BeginFromMenu();
         }
 
         private HueMainMenu mainMenu;
 
-        /// <summary>关卡按钮进入游戏；首次教学在点击之后启动。</summary>
+        /// <summary>启动或从主菜单进入存档关卡；首次直接运行完整教学。</summary>
         public void BeginFromMenu()
         {
+            if (!enabled || !root || LevelCount == 0) return;
             HueSafeArea.Refresh();
-            ResetGame();
-            if ((UIManager.Instance == null || UIManager.Instance.showTutorial) && PlayerPrefs.GetInt("cc_seen", 0) == 0)
+            if (mainMenu) mainMenu.HideForGameplay();
+            else
+            {
+                root.enabled = true;
+                var raycaster = root.GetComponent<UnityEngine.UI.GraphicRaycaster>();
+                if (raycaster) raycaster.enabled = true;
+            }
+            StartLevel(ResumeLevelIndex);
+            if ((UIManager.Instance == null || UIManager.Instance.showTutorial) && !HasCompletedTutorial)
+            {
+                resumeEndlessAfterTutorial = CampaignCompleted;
                 StartTutorial();
+            }
+            else if (CampaignCompleted)
+                StartEndless();
         }
 
         /// <summary>胜负面板的 Home 入口，清理本局动画后返回主菜单。</summary>
         public void ReturnHome()
         {
+            if (mainMenu && mainMenu.IsPauseSettingsOpen) return;
             if ((!sheetVisible && !IsPaused) || generating) return;
             if (!mainMenu) mainMenu = FindObjectOfType<HueMainMenu>();
             if (!mainMenu || !mainMenu.ResolveBindings()) return;
@@ -415,7 +422,6 @@ namespace HueRelay
             par = P.L.par > 0 ? P.L.par : Best(P, P.Full, new HueRandom(7), 300).taps;
             Limit = P.L.moves > 0 ? P.L.moves : par + 2;
             baseMoveLimit = Limit;
-            bestScore = PlayerPrefs.GetInt(campaignBestPrefix + LevelIndex, 0);
             ResetGame();
         }
 
@@ -428,7 +434,6 @@ namespace HueRelay
                 return;
             generating = true;
             Endless = true;
-            bestScore = PlayerPrefs.GetInt("cc_best", 0);
             LevelData L = null;
             Metrics metrics = null;
             // 每次尝试后让出一帧，避免筛选复杂棋盘时长时间阻塞输入和绘制。
@@ -493,6 +498,7 @@ namespace HueRelay
         /// </summary>
         public void ResetGame()
         {
+            if (mainMenu && mainMenu.IsPauseSettingsOpen) mainMenu.CloseSettings();
             DismissPowerUpRefill(false);
             ResumePause();
             StopAllCoroutines();
@@ -521,6 +527,7 @@ namespace HueRelay
             chipOverride = null;
             tut = -1;
             snapshot = null;
+            resumeEndlessAfterTutorial = false;
             progress = progressFrom = progressTarget = 0;
             guidePuzzle = null;
             guideMask = guideArrow = -1;
@@ -755,8 +762,10 @@ namespace HueRelay
         /// <summary>推进教学文字步骤，最后一步恢复原棋局。</summary>
         public void AdvanceTutorial()
         {
-            if (generating || tut < 3)
+            if (generating || IsPaused || refillOpen || tut < 3 || Time.frameCount == resumedFrame
+                || Time.frameCount == tutorialAdvancedFrame || now - tutStepAt < .2f)
                 return;
+            tutorialAdvancedFrame = Time.frameCount;
             if (tut < 5)
                 TutorialStep(tut + 1);
             else
@@ -764,12 +773,24 @@ namespace HueRelay
         }
 
         /// <summary>
-        /// 只处理棋盘折线命中；固定按钮由场景中的 EventSystem 与 Button 处理。
+        /// 说明型教学点击任意位置继续；其余步骤处理棋盘命中，固定按钮仍由 EventSystem 处理。
         /// </summary>
         /// <param name="p">相对于整个界面的逻辑像素点击位置。</param>
         private void Pointer(Vector2 p)
         {
-            if (IsPaused || refillOpen || Time.frameCount == resumedFrame || generating || sceneView.BlocksBoardPointer(p, pixelScale))
+            if (IsPaused || refillOpen || Time.frameCount == resumedFrame || Time.frameCount == tutorialAdvancedFrame || generating)
+                return;
+            if (tut >= 3)
+            {
+                // The back button keeps its pause action; every other area can
+                // advance a text step, including the card and empty background.
+                if (sceneView.helpButton.gameObject.activeInHierarchy
+                    && sceneView.HudBounds((RectTransform)sceneView.helpButton.transform).Contains(p))
+                    return;
+                AdvanceTutorial();
+                return;
+            }
+            if (sceneView.BlocksBoardPointer(p, pixelScale))
                 return;
             if (p.x < ox || p.x > ox + P.L.w * cs || p.y < oy || p.y > oy + P.L.h * cs)
                 return;
@@ -818,6 +839,9 @@ namespace HueRelay
                 return;
             }
 
+            // Commit before celebrations or navigation, including an immediate app exit.
+            if (!Endless && tut < 0) campaignProgress?.Complete(LevelIndex);
+
             punchAt = now;
             chipOverride = "Left " + remaining;
             HueAudio.Vibrate(20, 30, 60);
@@ -853,23 +877,23 @@ namespace HueRelay
         }
 
         /// <summary>
-        /// 显示唯一的结算面板；胜利时在奖励落点全部计分后保存最高分，不保存关卡进度。
+        /// 显示唯一的结算面板；胜利时在奖励落点全部计分后保存最高分。
         /// </summary>
         private void ShowSheet()
         {
             if (sheetVisible || !Over)
                 return;
-            if (Won)
+            if (Won && tut < 0)
             {
                 record = Score > bestScore;
                 if (record)
                 {
                     bestScore = Score;
-                    PlayerPrefs.SetInt(Endless ? "cc_best" : campaignBestPrefix + LevelIndex, Score);
+                    PlayerPrefs.SetInt(bestScoreKey, bestScore);
                 }
 
                 PlayerPrefs.Save();
-                chipOverride = null;
+                // Keep the bonus countdown at zero until the next board starts.
             }
 
             sheetVisible = true;
@@ -884,7 +908,8 @@ namespace HueRelay
             if (mainMenu && mainMenu.IsVisible) return;
             if (Input.GetKeyDown(KeyCode.Escape))
             {
-                if (refillOpen) ClosePowerUpRefill();
+                if (mainMenu && mainMenu.IsPauseSettingsOpen) mainMenu.CloseSettings();
+                else if (refillOpen) ClosePowerUpRefill();
                 else if (IsPaused) ResumePause(); else OpenPause();
                 return;
             }

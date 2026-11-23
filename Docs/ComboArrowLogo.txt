@@ -1,0 +1,10 @@
+Combo Arrow 主菜单 Logo
+
+图片：Assets/HueRelay/Art/Brand/ComboArrowLogo.png
+生成方式：内置 image_gen，透明底 PNG；保留原始像素及 Alpha。
+Unity 导入：Sprite (Single)，最大纹理 1024，无 Mipmap、关闭读写，不拦截点击。
+默认显示：HueMainMenu 的 Logo Size = 280 × 140 逻辑像素，保持宽高比，透明留白包含在尺寸内；沿用主菜单原标题中心位置。需要缩小时可直接修改该字段。
+场景：TitleLogoPlaceholder / ComboArrowLogo 使用正式图片；旧 TitleTop / TitleBottom 停用保留。
+
+最终生成提示词：
+Use case: logo-brand. Asset type: production transparent PNG wordmark for a minimalist mobile arrow-chain puzzle game main menu. Exact text ONLY: "COMBO" on the first line and "ARROW" on the second line. Render spelling precisely C O M B O / A R R O W. Design a compact polished friendly bold rounded geometric sans-serif two-line title, with a small clever pair of interlocking directional arrows at the LEFT suggesting a combo/chain reaction, not a reload icon. Flat vector-like crisp shapes, contemporary casual puzzle UI; top word dark navy #1C2040, lower word periwinkle blue #4C63FF, tiny warm orange #FF991A accent on one arrow, otherwise restrained. Balanced unified wide lockup, total width around twice its height, text dominates, subtle tasteful depth only, strong legibility displayed at about 270x125 UI points. No slogan, no additional text, no badge, no framing box, no scene or background, no glossy 3D or heavy shadow, no tiny detail. True transparent alpha around all letters/mark, no white rectangle, generous but modest transparent breathing room; single finished logo centered, fully visible.

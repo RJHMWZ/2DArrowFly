@@ -2,6 +2,7 @@
 using System;
 using System.IO;
 using UnityEditor;
+using UnityEditor.Build.Player;
 using UnityEditor.SceneManagement;
 using UnityEngine;
 using UnityEngine.UI;
@@ -38,6 +39,8 @@ public static class HuePausePresentationChecks
                 view.ApplyLayout(size.x,size.y,k,(size.x-appW)/2,appW,0,0,y,h,size.x/2-100,y+h/2-120,200,240,false,2);
                 view.SetHud("120",HueGame.Ink,1,0,"Best 360","Level 1","Moves 2/6",HueGame.Ink,.5f,false,0,2,4,false);
                 pause.Show(game,true); Canvas.ForceUpdateCanvases(); pause.Layout(); Canvas.ForceUpdateCanvases();
+                if ((pause.levelLabel && pause.levelLabel.gameObject.activeSelf) || !pause.settingsButton.gameObject.activeSelf)
+                    throw new Exception("Pause must hide level and show Settings.");
                 var canvasRect=view.canvas.transform as RectTransform;
                 var corners=new Vector3[4]; pause.card.GetWorldCorners(corners);
                 foreach(var p in corners)
@@ -45,17 +48,45 @@ public static class HuePausePresentationChecks
                     var point=canvasRect.InverseTransformPoint(p);
                     if (!canvasRect.rect.Contains(point)) throw new Exception("Pause card escaped viewport: "+size);
                 }
-                camera.Render(); var previous=RenderTexture.active; RenderTexture.active=rt;
-                var texture=new Texture2D(rt.width,rt.height,TextureFormat.RGB24,false);
-                texture.ReadPixels(new Rect(0,0,rt.width,rt.height),0,0);texture.Apply();
-                File.WriteAllBytes("Logs/PauseMenu/"+size.x+"x"+size.y+".png",texture.EncodeToPNG());
-                RenderTexture.active=previous;UnityEngine.Object.DestroyImmediate(texture);
+                Capture(camera,rt,"Logs/PauseMenu/"+size.x+"x"+size.y+".png");
+                if(menu)
+                {
+                    menu.gameObject.SetActive(true);
+                    menu.menuCanvas.renderMode=RenderMode.ScreenSpaceCamera;
+                    menu.menuCanvas.worldCamera=camera; menu.menuCanvas.planeDistance=10;
+                    typeof(HueGame).GetProperty("IsPaused").SetValue(game,true);
+                    menu.OpenSettingsFromPause();
+                    menu.Layout(rt.width,rt.height,new Rect(0,0,rt.width,rt.height));
+                    Canvas.ForceUpdateCanvases();
+                    menu.settingsCard.GetWorldCorners(corners);
+                    var settingsCanvas=(RectTransform)menu.menuCanvas.transform;
+                    foreach(var p in corners)
+                        if(!settingsCanvas.rect.Contains(settingsCanvas.InverseTransformPoint(p)))
+                            throw new Exception("Shared Settings escaped viewport: "+size);
+                    if(menu.IsVisible || menu.logo.gameObject.activeSelf || menu.levelButton.gameObject.activeSelf || pause.card.gameObject.activeSelf)
+                        throw new Exception("Pause settings exposed main-menu content.");
+                    Capture(camera,rt,"Logs/PauseMenu/"+size.x+"x"+size.y+"-settings.png");
+                    menu.CloseSettings();
+                }
                 camera.targetTexture=null;UnityEngine.Object.DestroyImmediate(camera.gameObject);
                 rt.Release();UnityEngine.Object.DestroyImmediate(rt);
             }
-            File.WriteAllText("Logs/PauseMenu/presentation.txt","PASS: authored pause card and four buttons rendered in tall portrait, short portrait and landscape; card stays inside viewport.\n");
+            var compiled=PlayerBuildInterface.CompilePlayerScripts(new ScriptCompilationSettings {
+                target=BuildTarget.WebGL,group=BuildTargetGroup.WebGL,options=ScriptCompilationOptions.None
+            },Path.GetFullPath("Temp/PauseSettingsPlayer"));
+            if(compiled.assemblies==null || compiled.assemblies.Count==0) throw new Exception("WebGL Player compilation failed.");
+            File.WriteAllText("Logs/PauseMenu/presentation.txt","PASS: no level label; five-button pause and shared Settings rendered in tall/short portrait and landscape (6 cases); both cards stay inside viewport; menu content hidden over pause; WebGL Player C# compilation.\n");
             EditorApplication.Exit(0);
         }
         catch(Exception e){Debug.LogException(e);EditorApplication.Exit(1);}
+    }
+
+    static void Capture(Camera camera,RenderTexture rt,string path)
+    {
+        camera.Render(); var previous=RenderTexture.active; RenderTexture.active=rt;
+        var texture=new Texture2D(rt.width,rt.height,TextureFormat.RGB24,false);
+        texture.ReadPixels(new Rect(0,0,rt.width,rt.height),0,0);texture.Apply();
+        File.WriteAllBytes(path,texture.EncodeToPNG());
+        RenderTexture.active=previous;UnityEngine.Object.DestroyImmediate(texture);
     }
 }

@@ -73,6 +73,19 @@ namespace HueRelay
         public Text tutorialText;
         public Button tutorialNext;
         public Text tutorialNextText;
+        public Image tutorialBackground;
+
+        public enum TutorialPlacement { Bottom, Top, Manual }
+        [Tooltip("Bottom/Top: automatic placement inside Stage. Manual: drag TutorialGroup in the Scene; its position and anchors are preserved.")]
+        public TutorialPlacement tutorialPlacement = TutorialPlacement.Bottom;
+        [Tooltip("Logical pixels. Positive X moves right; positive Y moves up. Used in Bottom/Top mode.")]
+        public Vector2 tutorialOffset = new Vector2(0, 40);
+        [Tooltip("Minimum gap from the highlighted arrow/hand in automatic placement modes, in logical pixels.")]
+        [Min(0)] public float tutorialTargetGap = 80;
+        [Min(160)] public float tutorialCardWidth = 318;
+        [Range(16, 30)] public int tutorialFontSize = 20;
+        public Color tutorialBackgroundColor = new Color(.91f, .93f, 1, 1);
+        public Color tutorialTextColor = new Color(.11f, .125f, .25f, 1);
 
         [Header("Result Card")]
         public Image resultBackdrop;
@@ -119,6 +132,7 @@ namespace HueRelay
         private bool? shownComplete;
         private string measuredTutorial;
         private float measuredTutorialWidth = -1;
+        private int measuredTutorialFontSize;
         private float tutorialTextHeight;
         private string measuredDetail;
         private float measuredDetailWidth = -1;
@@ -181,6 +195,7 @@ namespace HueRelay
             if (!boardBackground) boardBackground = FindImage(boardFrame, "BoardBackground");
             if (!resultBackdrop) resultBackdrop = FindImage(stage, "ResultBackdrop");
             if (!victoryFlash) victoryFlash = FindImage(transform, "VictoryFlash");
+            if (!tutorialBackground) tutorialBackground = FindImage(tutorialGroup ? tutorialGroup.transform : null, "TutorialBackdrop");
         }
 
         private static Image FindImage(Transform scope, string objectName)
@@ -379,7 +394,7 @@ namespace HueRelay
                 new Vector2(boardWidth + 16 * scale, boardHeight + 16 * scale));
             boardSurface.rectTransform.sizeDelta = effectsSurface.rectTransform.sizeDelta = new Vector2(width, height);
             best.gameObject.SetActive(!teaching);
-            resultGroup.transform.localScale = tutorialGroup.transform.localScale = Vector3.one * scale;
+            resultGroup.transform.localScale = Vector3.one * scale;
             float overlayWidth = (appWidth / scale - 32) / 1.4f;
             ((RectTransform)comboGroup.transform).SetSizeWithCurrentAnchors(RectTransform.Axis.Horizontal, overlayWidth);
             ((RectTransform)milestoneGroup.transform).SetSizeWithCurrentAnchors(RectTransform.Axis.Horizontal, overlayWidth);
@@ -511,18 +526,24 @@ namespace HueRelay
         }
 
         /// <summary>更新教学内容与卡片尺寸；按钮、背景和文字组件始终来自场景。</summary>
-        public void SetTutorial(string text, int step, float scale, float easing)
+        public void SetTutorial(string text, int step, float scale, float easing,
+            Vector2? target = null, float targetRadius = 0)
         {
             SetActive(tutorialGroup.gameObject, true);
             tutorialGroup.alpha = Mathf.Clamp01(easing);
-            bool hasButton = step >= 3;
-            float buttonWidth = step == 5 ? 76 : 72;
-            float width = stage.rect.width / scale - 20;
-            float textWidth = width - 36 - (hasButton ? 12 + buttonWidth : 0);
-            if (measuredTutorial != text || measuredTutorialWidth != textWidth)
+            scale = Mathf.Max(.01f, scale);
+            float width = Mathf.Min(Mathf.Max(160, tutorialCardWidth), Mathf.Max(80, stage.rect.width / scale - 24));
+            float textWidth = width - 36;
+            tutorialText.fontSize = Mathf.Clamp(tutorialFontSize, 16, 30);
+            tutorialText.color = tutorialTextColor;
+            tutorialText.alignment = TextAnchor.MiddleCenter;
+            if (!tutorialBackground) tutorialBackground = FindImage(tutorialGroup.transform, "TutorialBackdrop");
+            if (tutorialBackground) tutorialBackground.color = tutorialBackgroundColor;
+            if (measuredTutorial != text || measuredTutorialWidth != textWidth || measuredTutorialFontSize != tutorialText.fontSize)
             {
                 measuredTutorial = text;
                 measuredTutorialWidth = textWidth;
+                measuredTutorialFontSize = tutorialText.fontSize;
                 tutorialText.horizontalOverflow = HorizontalWrapMode.Wrap;
                 tutorialText.verticalOverflow = VerticalWrapMode.Overflow;
                 tutorialText.rectTransform.sizeDelta = new Vector2(textWidth, 200);
@@ -531,18 +552,68 @@ namespace HueRelay
                 tutorialText.text = WrapWords(tutorialText, text, textWidth - 2);
                 tutorialTextHeight = CardTextHeight(tutorialText);
             }
-            float height = 32 + Mathf.Max(tutorialTextHeight, hasButton ? 38 : 0);
+            float height = 36 + tutorialTextHeight;
             RectTransform card = (RectTransform)tutorialGroup.transform;
-            card.sizeDelta = new Vector2(width, height);
-            card.anchoredPosition = new Vector2(0, 10 * scale - (1 - easing) * 40 * scale);
-            card.localScale = Vector3.one * scale * Mathf.Min(1, Mathf.Max(.1f, stage.rect.height / scale - 20) / height);
-            tutorialText.rectTransform.sizeDelta = new Vector2(textWidth, tutorialTextHeight);
-            tutorialText.rectTransform.anchoredPosition = new Vector2(tutorialText.rectTransform.anchoredPosition.x,
-                -16 - (Mathf.Max(tutorialTextHeight, hasButton ? 38 : 0) - tutorialTextHeight) * .5f);
-            SetActive(tutorialNext.gameObject, hasButton);
-            tutorialNext.GetComponent<RectTransform>().SetSizeWithCurrentAnchors(RectTransform.Axis.Horizontal, buttonWidth);
-            tutorialNextText.text = step == 5 ? "Play" : "Next";
-            FitLabel(tutorialNextText, buttonWidth - 16, 15);
+            card.SetSizeWithCurrentAnchors(RectTransform.Axis.Horizontal, width);
+            card.SetSizeWithCurrentAnchors(RectTransform.Axis.Vertical, height);
+            float fittedScale = scale * Mathf.Min(1, Mathf.Max(1, stage.rect.height - 24 * scale) / (height * scale));
+            card.localScale = Vector3.one * fittedScale;
+            if (tutorialPlacement != TutorialPlacement.Manual)
+                PlaceTutorialCard(card, new Vector2(width, height) * fittedScale, scale, target, targetRadius);
+            // Only fade on entry: a sliding card can cross the highlighted arrow.
+            SetBox(tutorialText.rectTransform, new Rect(18, 18, textWidth, tutorialTextHeight));
+            SetActive(tutorialNext.gameObject, false);
+        }
+
+        private void PlaceTutorialCard(RectTransform card, Vector2 size, float scale, Vector2? target, float radius)
+        {
+            var parent = (RectTransform)card.parent;
+            Rect area = parent.rect;
+            float margin = 12 * scale;
+            float minX = area.xMin + margin + size.x * .5f;
+            float maxX = Mathf.Max(minX, area.xMax - margin - size.x * .5f);
+            float minY = area.yMin + margin;
+            float maxY = Mathf.Max(minY, area.yMax - margin - size.y);
+            float x = Mathf.Clamp(area.center.x + tutorialOffset.x * scale, minX, maxX);
+            float y = tutorialPlacement == TutorialPlacement.Top
+                ? maxY + tutorialOffset.y * scale : area.yMin + tutorialOffset.y * scale;
+            y = Mathf.Clamp(y, minY, maxY);
+            if (target.HasValue)
+            {
+                // Game coordinates start at the canvas top-left; the card lives in Stage.
+                var canvasRect = (RectTransform)canvas.transform;
+                Vector3 world = canvasRect.TransformPoint(new Vector3(canvasRect.rect.xMin + target.Value.x,
+                    canvasRect.rect.yMax - target.Value.y, 0));
+                Vector2 point = parent.InverseTransformPoint(world);
+                float gap = Mathf.Max(0, tutorialTargetGap) * scale + Mathf.Max(0, radius);
+                float dx = Mathf.Max(0, Mathf.Abs(point.x - x) - size.x * .5f);
+                if (dx < gap)
+                {
+                    float dy = Mathf.Sqrt(gap * gap - dx * dx);
+                    float below = point.y - dy - size.y;
+                    float above = point.y + dy;
+                    if (y > below && y < above)
+                    {
+                        bool canBelow = below >= minY;
+                        bool canAbove = above <= maxY;
+                        if (canBelow && canAbove) y = y - below <= above - y ? below : above;
+                        else if (canBelow) y = below;
+                        else if (canAbove) y = above;
+                        else y = Mathf.Abs(minY + size.y * .5f - point.y) >= Mathf.Abs(maxY + size.y * .5f - point.y) ? minY : maxY;
+                    }
+                }
+            }
+            card.anchorMin = card.anchorMax = card.pivot = new Vector2(.5f, 0);
+            card.anchoredPosition = new Vector2(x - area.center.x, y - area.yMin);
+        }
+
+        [ContextMenu("Preview Tutorial Card")]
+        private void PreviewTutorialCard()
+        {
+            if (Application.isPlaying || !ValidateBindings(out _)) return;
+            float scale = Mathf.Clamp(Mathf.Min(((RectTransform)canvas.transform).rect.width / 390,
+                ((RectTransform)canvas.transform).rect.height / 800), .75f, 3.5f);
+            SetTutorial("Tap an arrow to send it flying.", 0, scale, 1);
         }
 
         /// <summary>居中呈现结算卡片，轻微上浮淡入；胜利保留明亮棋盘背景。</summary>
@@ -637,8 +708,14 @@ namespace HueRelay
         {
             var wrapped = new System.Text.StringBuilder();
             string line = "";
-            foreach (string word in text.Split(' '))
+            foreach (string word in text.Replace("\n", " \n ").Split(' '))
             {
+                if (word == "\n")
+                {
+                    wrapped.Append(line).Append('\n');
+                    line = "";
+                    continue;
+                }
                 string candidate = line.Length == 0 ? word : line + " " + word;
                 label.text = candidate;
                 if (line.Length > 0 && label.preferredWidth > width)

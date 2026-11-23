@@ -8,8 +8,7 @@ namespace HueRelay
     public sealed partial class HueGame
     {
         private int drawnScore = -1;
-        private int drawnTaps = -1;
-        private int drawnLimit = -1;
+        private int drawnMovesLeft = -1;
         private int drawnBest = -1;
         private int drawnChain = -1;
         private int drawnLevel = -2;
@@ -130,11 +129,11 @@ namespace HueRelay
                 drawnEndless = Endless;
                 titleText = tut >= 0 ? "How to Play" : Endless ? "Endless" : "Level " + (LevelIndex + 1);
             }
-            if (Taps != drawnTaps || Limit != drawnLimit)
+            int movesLeft = Mathf.Max(0, Limit - Taps);
+            if (movesLeft != drawnMovesLeft)
             {
-                drawnTaps = Taps;
-                drawnLimit = Limit;
-                movesText = "Moves " + Taps + "/" + Limit;
+                drawnMovesLeft = movesLeft;
+                movesText = "Left " + movesLeft;
             }
             sceneView.SetHud(scoreText, scoreColor, scoreScale, scoreW / K, bestText, titleText,
                 chipOverride ?? movesText, Limit - Taps <= 2 ? Orange : Ink,
@@ -522,7 +521,8 @@ namespace HueRelay
             else
             {
                 float p = Bezier(Mathf.Clamp01((now - tutStepAt) / .35f), .3f, 1.4f, .5f, 1);
-                sceneView.SetTutorial(TutorialText[tut], tut, K, p);
+                Vector2? target = tut < 3 ? (Vector2?)(new Vector2(ox, oy) + G(P.arrs[TutorialIds[tut]].Head)) : null;
+                sceneView.SetTutorial(TutorialText[tut], tut, K, p, target, cs * .7f);
             }
 
             if (showFinger)

@@ -1,4 +1,6 @@
+using System.Collections.Generic;
 using UnityEngine;
+using UnityEngine.EventSystems;
 using UnityEngine.UI;
 
 namespace HueRelay
@@ -12,6 +14,8 @@ namespace HueRelay
         public Canvas menuCanvas;
         public CanvasScaler scaler;
         public RectTransform logo;
+        [Tooltip("Logo display size in logical pixels; the image keeps its aspect ratio.")]
+        public Vector2 logoSize = new Vector2(280, 140);
         public Button levelButton;
         public Text levelLabel;
         public Button settingsButton;
@@ -24,7 +28,11 @@ namespace HueRelay
         public Button vibrationButton;
         public Text vibrationState;
         public Button closeButton;
-        public bool IsVisible => menuCanvas && menuCanvas.enabled;
+        [SerializeField, HideInInspector] private bool settingsFromPause;
+        [SerializeField, HideInInspector] private List<GameObject> hiddenForPauseSettings = new List<GameObject>();
+        private RectTransform hiddenPauseCard;
+        public bool IsPauseSettingsOpen => settingsFromPause;
+        public bool IsVisible => menuCanvas && menuCanvas.enabled && !settingsFromPause;
 
         // Unity may import the scene before a newly added script has compiled.
         // Recover the authored nodes in that already-open scene after script reload.
@@ -99,7 +107,7 @@ namespace HueRelay
             if (!Application.isPlaying) return;
             // Rebind after scene/script reload; a cached flag can survive while
             // UnityEvent's runtime listeners have already been discarded.
-            OnDisable();
+            UnbindButtons();
             levelButton.onClick.AddListener(Play);
             settingsButton.onClick.AddListener(OpenSettings);
             closeButton.onClick.AddListener(CloseSettings);
@@ -108,6 +116,12 @@ namespace HueRelay
         }
 
         private void OnDisable()
+        {
+            CloseSettings();
+            UnbindButtons();
+        }
+
+        private void UnbindButtons()
         {
             if (levelButton) levelButton.onClick.RemoveListener(Play);
             if (settingsButton) settingsButton.onClick.RemoveListener(OpenSettings);
@@ -122,7 +136,7 @@ namespace HueRelay
             HueSafeArea.Refresh();
             BindButtons();
             CloseSettings();
-            levelLabel.text = game.Endless ? "Endless Mode" : "Level " + (game.LevelIndex + 1);
+            levelLabel.text = game.ResumeButtonLabel;
             SetCanvas(view.canvas, false);
             SetCanvas(menuCanvas, true);
             Layout(Screen.width, Screen.height, Screen.safeArea);
@@ -131,9 +145,15 @@ namespace HueRelay
         public void Play()
         {
             if (!IsVisible || settingsOverlay.activeSelf) return;
+            game.BeginFromMenu();
+        }
+
+        public void HideForGameplay()
+        {
+            if (!ResolveBindings()) return;
+            CloseSettings();
             SetCanvas(menuCanvas, false);
             SetCanvas(view.canvas, true);
-            game.BeginFromMenu();
         }
 
         private static void SetCanvas(Canvas canvas, bool visible)
@@ -143,8 +163,60 @@ namespace HueRelay
             if (raycaster) raycaster.enabled = visible;
         }
 
-        public void OpenSettings() { if (settingsOverlay) settingsOverlay.SetActive(true); RefreshSettings(); }
-        public void CloseSettings() { if (settingsOverlay) settingsOverlay.SetActive(false); }
+        public void OpenSettings()
+        {
+            if (!IsVisible || !settingsOverlay) return;
+            settingsOverlay.SetActive(true); RefreshSettings();
+        }
+
+        public void OpenSettingsFromPause()
+        {
+            if (!ResolveBindings() || !game.IsPaused || settingsFromPause) return;
+            BindButtons();
+            settingsFromPause = true;
+            hiddenForPauseSettings.Clear();
+            var pause = view.canvas.GetComponentInChildren<HuePauseMenu>(true);
+            if (pause && pause.card && pause.card.gameObject.activeSelf)
+            {
+                hiddenPauseCard = pause.card;
+                hiddenPauseCard.gameObject.SetActive(false);
+            }
+            // Present only the existing settings overlay on the menu's higher
+            // canvas. Keep the paused game visible beneath it.
+            foreach (Transform child in transform)
+                if (child.gameObject != settingsOverlay && child.gameObject.activeSelf)
+                {
+                    hiddenForPauseSettings.Add(child.gameObject);
+                    child.gameObject.SetActive(false);
+                }
+            SetCanvas(menuCanvas, true);
+            var gameRaycaster = view.canvas.GetComponent<GraphicRaycaster>();
+            if (gameRaycaster) gameRaycaster.enabled = false;
+            settingsOverlay.SetActive(true);
+            RefreshSettings();
+            Layout(Screen.width, Screen.height, Screen.safeArea);
+            if (EventSystem.current) EventSystem.current.SetSelectedGameObject(closeButton.gameObject);
+        }
+
+        public void CloseSettings()
+        {
+            if (settingsOverlay) settingsOverlay.SetActive(false);
+            if (!settingsFromPause) return;
+            settingsFromPause = false;
+            if (menuCanvas) SetCanvas(menuCanvas, false);
+            foreach (var child in hiddenForPauseSettings) if (child) child.SetActive(true);
+            hiddenForPauseSettings.Clear();
+            if (hiddenPauseCard) hiddenPauseCard.gameObject.SetActive(true);
+            hiddenPauseCard = null;
+            if (view && view.canvas)
+            {
+                var raycaster = view.canvas.GetComponent<GraphicRaycaster>();
+                if (raycaster) raycaster.enabled = true;
+                var pause = view.canvas.GetComponentInChildren<HuePauseMenu>(true);
+                if (pause && pause.settingsButton && game && game.IsPaused && EventSystem.current)
+                    EventSystem.current.SetSelectedGameObject(pause.settingsButton.gameObject);
+            }
+        }
         public void ToggleSound()
         {
             HueAudio.SoundEnabled = !HueAudio.SoundEnabled;
@@ -191,7 +263,8 @@ namespace HueRelay
             float w = width / scale, h = height / scale;
             float top = HueSafeArea.TopPixels(width, height, safeArea) / scale, bottom = safeArea.yMin / scale;
             float usable = h - top - bottom;
-            Place(logo, w * .5f, top + usable * .275f, 300, 112);
+            Place(logo, w * .5f, top + usable * .275f,
+                Mathf.Clamp(logoSize.x, 1, Mathf.Max(1, w - 48)), Mathf.Max(1, logoSize.y));
             logo.localScale = Vector3.one;
             Place(levelButton.GetComponent<RectTransform>(), w * .5f, top + usable * .72f, 296, 72);
             // Inset the parent, keeping the button's scene-authored position/size.

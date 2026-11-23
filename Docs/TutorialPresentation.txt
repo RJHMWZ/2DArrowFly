@@ -1,0 +1,13 @@
+教学提示样式与位置
+
+在 HueRelay 场景中选择挂有 HueView 的 Canvas，在 Tutorial Card 分组调整：
+- Tutorial Placement：Bottom / Top 自动放在 Stage 底部 / 顶部，自动限制在 Stage 内，并避开当前教学箭头及手势。
+- Tutorial Offset：自动模式的位置偏移，使用逻辑像素，X 正值向右、Y 正值向上。默认底部上移 40。
+- Tutorial Target Gap：自动模式下与教学点击目标的最小间距，默认 80；另计箭头和手势占用半径。过小屏幕或过大间距无法同时容纳时优先保留卡片在 Stage 内。
+- Tutorial Card Width / Font Size：卡片最大宽度、字号，文字自动换行、卡片高度随文字调整。
+- Tutorial Background Color / Text Color：背景和文字颜色，默认浅蓝紫底、深色文字，与游戏整体配色一致。
+
+直接在场景拖动：把 Tutorial Placement 设为 Manual，展开 Stage / TutorialGroup，启用该节点后调整 RectTransform 的锚点及位置。Manual 不会覆盖节点的位置、锚点和 Pivot；自动避让和 Offset 不生效，间距由你手动控制。尺寸仍会根据字号、宽度及屏幕可用空间自适应。
+在 HueView 组件右上角菜单执行 Preview Tutorial Card，可在非运行状态显示第一步卡片；预览不会修改教学流程或存档。
+自动定位只做淡入，不做位移入场，避免卡片动画经过点击目标。
+前三步仍点击指定箭头；后三条说明不显示 Next / Play 按钮，点击提示卡、棋盘、空白或道具区域均继续，最后一条点击后恢复正式关卡。左上返回按钮仍打开暂停面板；暂停时不推进。同一帧只推进一次，新说明出现后有 0.2 秒保护，防止误跳过。

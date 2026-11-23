@@ -29,6 +29,8 @@ namespace HueRelay.Editor
                 game.TapArrow(game.P.L.solution[0]);
                 view.helpButton.onClick.Invoke();
                 Require(game.IsPaused && pause.gameObject.activeSelf,"Back button did not open pause.");
+                Require((!pause.levelLabel || !pause.levelLabel.gameObject.activeSelf) && pause.settingsButton,
+                    "Pause must hide the level label and expose Settings.");
                 Require(!view.retryButton.gameObject.activeSelf,"Old retry button is still visible in HUD.");
                 frozenTime=Clock(game); mask=game.Mask; score=game.Score; taps=game.Taps;
                 started=EditorApplication.timeSinceStartup; phase=1; return false;
@@ -40,6 +42,51 @@ namespace HueRelay.Editor
                     "Game state/clock advanced while paused.");
                 game.TapArrow(2); game.Hint(); game.AddMoves(); game.ToggleErase();
                 Require(game.Mask==mask && game.Taps==taps && !game.IsChoosingErase,"Paused board accepted gameplay input.");
+                var menu=UnityEngine.Object.FindObjectOfType<HueMainMenu>();
+                pause.settingsButton.onClick.Invoke();
+                Require(game.IsPaused && menu.IsPauseSettingsOpen && !menu.IsVisible && menu.settingsOverlay.activeSelf,
+                    "Pause Settings did not open the shared settings overlay.");
+                Require(!menu.logo.gameObject.activeSelf && !menu.levelButton.gameObject.activeSelf
+                    && !menu.settingsSafeArea.gameObject.activeSelf && !pause.card.gameObject.activeSelf && view.canvas.enabled
+                    && !view.canvas.GetComponent<GraphicRaycaster>().enabled,
+                    "Pause Settings exposed the menu or allowed game-canvas input.");
+                pause.continueButton.onClick.Invoke(); pause.retryButton.onClick.Invoke();
+                pause.tutorialButton.onClick.Invoke(); pause.homeButton.onClick.Invoke();
+                Require(game.IsPaused && menu.IsPauseSettingsOpen && game.Mask==mask && game.Taps==taps,
+                    "Underlying pause callbacks ran while Settings was open.");
+                bool sound=HueAudio.SoundEnabled, vibration=HueAudio.VibrationEnabled;
+                bool hadSound=PlayerPrefs.HasKey("cc_sound"),hadVibration=PlayerPrefs.HasKey("cc_vibration");
+                try
+                {
+                    menu.soundButton.onClick.Invoke(); menu.vibrationButton.onClick.Invoke();
+                    Require(HueAudio.SoundEnabled!=sound && HueAudio.VibrationEnabled!=vibration
+                        && menu.soundState.text==(sound ? "OFF" : "ON")
+                        && PlayerPrefs.GetInt("cc_sound")== (sound ? 0 : 1),
+                        "Shared settings did not toggle/update/persist.");
+                }
+                finally
+                {
+                    HueAudio.SoundEnabled=sound; HueAudio.VibrationEnabled=vibration;
+                    if(hadSound) PlayerPrefs.SetInt("cc_sound",sound ? 1 : 0); else PlayerPrefs.DeleteKey("cc_sound");
+                    if(hadVibration) PlayerPrefs.SetInt("cc_vibration",vibration ? 1 : 0); else PlayerPrefs.DeleteKey("cc_vibration");
+                    PlayerPrefs.Save();
+                }
+                started=EditorApplication.timeSinceStartup; phase=3; return false;
+            }
+            if (phase == 3)
+            {
+                if (EditorApplication.timeSinceStartup-started < .35) return false;
+                var menu=UnityEngine.Object.FindObjectOfType<HueMainMenu>();
+                Require(game.IsPaused && Clock(game)==frozenTime && game.Mask==mask && game.Taps==taps,
+                    "Game advanced while shared Settings was open.");
+                menu.closeButton.onClick.Invoke();
+                Require(!menu.IsPauseSettingsOpen && !menu.IsVisible && !menu.settingsOverlay.activeSelf
+                    && game.IsPaused && pause.gameObject.activeSelf && pause.card.gameObject.activeSelf && view.canvas.GetComponent<GraphicRaycaster>().enabled,
+                    "Done did not return to the paused game.");
+                pause.settingsButton.onClick.Invoke(); pause.settingsButton.onClick.Invoke(); menu.CloseSettings();
+                Require(game.IsPaused && menu.logo.gameObject.activeSelf && menu.levelButton.gameObject.activeSelf
+                    && menu.settingsSafeArea.gameObject.activeSelf,
+                    "Repeated settings open/close did not restore the authored menu content.");
                 pause.continueButton.onClick.Invoke();
                 float resumed=(float)typeof(HueGame).GetProperty("GameTime",Flags).GetValue(game);
                 Require(!game.IsPaused && !pause.gameObject.activeSelf && resumed-frozenTime < .15f,
@@ -69,7 +116,7 @@ namespace HueRelay.Editor
                 Require(!menu.IsVisible && !game.IsPaused && view.canvas.enabled,"Cannot play after Pause Home.");
                 phase=4;
                 Directory.CreateDirectory("Logs/PauseMenu");
-                File.WriteAllText("Logs/PauseMenu/checks.txt","PASS: back opens pause; relay, score, moves and game clock freeze; board/items blocked; Continue preserves time; relay resumes; tutorial, tutorial retry, Home and re-entry work.\n");
+                File.WriteAllText("Logs/PauseMenu/checks.txt","PASS: no level label; five buttons including Settings; shared settings overlay over paused game without menu content; underlying actions blocked; sound/vibration toggle and persist; closing Settings returns to pause; repeated opens restore menu content; full pause/settings time excluded; Continue, tutorial, retry, Home and re-entry work.\n");
                 return true;
             }
             return false;
