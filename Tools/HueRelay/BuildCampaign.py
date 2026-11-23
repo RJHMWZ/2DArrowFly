@@ -1,4 +1,8 @@
-"""Deterministic offline campaign authoring and exact settled-chain verification."""
+"""Legacy v1 authoring and shared exact settled-chain solver.
+
+Use RebalanceCampaign.py to generate the current v2 campaign while preserving
+the first ten puzzles. This script's CLI intentionally reproduces the v1 design.
+"""
 from __future__ import annotations
 import argparse
 import heapq
@@ -168,19 +172,19 @@ class Board:
                     heapq.heappush(heap, (ng+h, after.bit_count(), ng, after))
         return solution, rolls, expanded
 
-def candidate(seed, chapter, count):
+def candidate(seed, chapter, count, palette=None, search_budget=40000):
     title, goal, w, h, _, _, hints, erasers, extra, slack = CHAPTERS[chapter]
     rng = random.Random(seed)
     layout = generate_layout(rng, w, h, count, chapter)
     if layout is None: return None
     arrows, blockers = layout
-    palette = 'BC' if chapter < 2 else 'ABC'
+    palette = palette or ('BC' if chapter < 2 else 'ABC')
     order = peel_order(blockers)
     for i in order:
         blocked_colors = [arrows[j]['c'] for j in range(count) if blockers[i] & (1 << j)]
         arrows[i]['c'] = rng.choice(blocked_colors) if blocked_colors and rng.random() < .7 else rng.choice(palette)
     board = Board(arrows, blockers)
-    solved = board.exact_solution(rng)
+    solved = board.exact_solution(rng,budget=search_budget)
     if solved is None: return None
     path, rolls, expanded = solved
     depth = [0] * count

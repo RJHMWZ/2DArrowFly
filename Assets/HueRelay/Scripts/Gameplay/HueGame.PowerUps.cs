@@ -14,10 +14,11 @@ namespace HueRelay
         public bool IsErasing => erasingArrow >= 0;
         private float EraseProgress => IsErasing ? Mathf.Clamp01((now - eraseStarted) / eraseDuration) : 0;
 
-        // Clearing the final arrow already commits the board to a win, including
-        // the settling interval before the victory flags are updated.
-        private bool PowerUpsReady => !IsPaused && Mask != 0 && !generating && tut < 0 && !UsesChainGuide && (!Over || !Won) && Idle;
-        public bool CanHint => PowerUpsReady && !IsChoosingErase && !Over && hints > 0 && Taps < Limit;
+        // Lock tools as soon as moves run out or the last arrow clears, including
+        // settling before Finish and the entire result-panel lifetime.
+        private bool PowerUpsReady => !IsPaused && !Over && !sheetVisible && Taps < Limit
+            && Mask != 0 && !generating && tut < 0 && !UsesChainGuide && Idle;
+        public bool CanHint => PowerUpsReady && !IsChoosingErase && hints > 0;
         public bool CanErase => PowerUpsReady && eraseUses > 0;
         public bool CanAddMoves => PowerUpsReady && !IsChoosingErase && extraMoveUses > 0;
         public int HintsRemaining => hints;
@@ -33,11 +34,6 @@ namespace HueRelay
                 return;
             }
             if (!CanErase) return;
-            if (Over)
-            {
-                ClearPendingMove();
-                ResumeBoard();
-            }
             IsChoosingErase = true;
             hintId = -1;
             finishAt = -1;
@@ -81,40 +77,10 @@ namespace HueRelay
             if (!CanAddMoves) return;
             extraMoveUses--;
             Limit += 3;
-            if (Over)
-            {
-                ClearPendingMove();
-                ResumeBoard();
-            }
             finishAt = -1;
             Pop(1.12f);
             audioBus.Tone(784, .14, .07);
             Render();
-        }
-
-        private void ClearPendingMove()
-        {
-            timed.Clear();
-            q.Clear();
-            auto.Clear();
-            charged.Clear();
-            chargeAt.Clear();
-            ClearEffects();
-            CancelErase();
-            nextChain = -1;
-            chainN = 0;
-        }
-
-        private void ResumeBoard()
-        {
-            now = GameTime;
-            busy = Over = Won = sheetVisible = false;
-            finishAt = -1;
-            remaining = bonusLaunched = bonusLanded = 0;
-            chipOverride = null;
-            hintId = -1;
-            punchAt = endAt = modalAt = comboAt = mileAt = scorePop = -100;
-            sceneView.HideTransient();
         }
     }
 }

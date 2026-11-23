@@ -1,0 +1,44 @@
+Use case: text-localization / precise image annotation.
+Edit target: the earlier uploaded image with EIGHT existing Hue Relay / GAME LOGO Unity game screenshots, a lavender-blue background, four columns and two rows. It is approximately 2257 by 2188. This is IMAGE 1 from the user's request.
+Style reference ONLY: the most recently uploaded Fruit Cut annotated eight-panel sheet (IMAGE 2). Use ONLY its Chinese numbered bold heading + short explanatory paragraph typography. Do not use its screenshots or Fruit Cut features.
+
+Create an annotated version of IMAGE 1. Preserve all eight screenshot rectangles, their exact order, their contents, all buttons, logos, existing English UI labels, dimensions, alignment and the original lavender-blue sheet background. Do not redesign or redraw game screens. Add text ONLY in the blank space ABOVE EACH screenshot. There is a large blank top band before the first row, and a broad lavender band between the first and second screenshot rows. Keep all screenshots fully visible without cropping and keep four columns by two rows. Match the reference's readable dark navy bold Chinese headings with smaller muted navy Chinese paragraph text, left aligned to the corresponding screenshot, consistent baseline and generous line spacing. Crisp high-resolution, clean Chinese sans serif text, no overlapping or overflowing columns. Aim to retain the original canvas size and aspect ratio, or uniformly scale the entire sheet up for sharp legibility.
+
+Place the following exact eight headings and corresponding paragraphs in reading order. These descriptions reflect the actual Unity project. Render every character correctly, including circled numbers and English button names.
+
+TOP ROW:
+Above first screenshot:
+Heading: "① 主界面"
+Paragraph: "左上角为设置入口，中央保留标题 Logo 占位。点击 Level 按钮进入关卡；纯色背景与游戏界面保持一致。"
+
+Above second screenshot:
+Heading: "② 设置弹窗"
+Paragraph: "深色遮罩搭配白色圆角卡片。Sound、Vibration 分别控制音效与震动，支持 ON／OFF 切换；点击 Done 关闭弹窗。"
+
+Above third screenshot:
+Heading: "③ 新手连锁引导"
+Paragraph: "前 3 关通过光圈和手指提示可触发连锁的箭头。点击后自动发射新解锁的同色箭头，帮助理解连锁规则；引导期间道具禁用。"
+
+Above fourth screenshot:
+Heading: "④ 关卡内"
+Paragraph: "顶部依次为返回按钮、当前分数、关卡与最高分、已用步数／步数上限。中央为箭头棋盘；底部为提示、擦除和加步数道具。"
+
+SECOND ROW:
+Above fifth screenshot (first column bottom row):
+Heading: "⑤ 暂停面板"
+Paragraph: "点击左上角返回按钮打开。遮罩与白色圆角卡片内提供 Continue、Tutorial、Retry、Home；暂停期间冻结游戏计时并阻止棋盘操作。"
+
+Above sixth screenshot:
+Heading: "⑥ 玩法教学"
+Paragraph: "从暂停面板进入独立教学，通过手指与底部文字说明演示发射、阻挡和同色连锁。完成教学后恢复原棋局，教学不消耗原局资源。"
+
+Above seventh screenshot:
+Heading: "⑦ 过关结算"
+Paragraph: "清空棋盘后显示完成标记、关卡及总分，并播放庆祝效果。剩余步数转换为奖励分数；Next Level 进入下一关，Home 返回主菜单。"
+
+Above eighth screenshot:
+Heading: "⑧ 失败结算"
+Paragraph: "步数耗尽且棋盘未清空时显示 Out of moves、当前分数和剩余箭头数。Retry 重玩，Home 返回主菜单；失败后全部道具禁用。"
+
+Do not copy the Fruit Cut reference's daily gifts, sidebar rewards, fruit, hearts, revive advertising, or monetization UI. These are not present in this project.
+Important: only add documentation captions in the empty outer bands. Keep the existing game UI/screenshots of IMAGE 1 unchanged, even if the old screenshots show older item counts or a disabled-state difference. No extra captions inside screenshots. No additional page title, footer or watermark.

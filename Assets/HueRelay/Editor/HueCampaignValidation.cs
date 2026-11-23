@@ -20,7 +20,7 @@ namespace HueRelay.Editor
             try
             {
                 var collection = Load();
-                Require(collection.campaignId == "hue100_v1" && collection.levels.Length == 100, "Expected 100 campaign levels.");
+                Require(collection.campaignId == "hue100_v2" && collection.levels.Length == 100, "Expected rebalanced 100-level campaign.");
                 var signatures = new HashSet<string>();
                 LevelData previous = null;
                 for (int index = 0; index < collection.levels.Length; index++)
@@ -32,6 +32,10 @@ namespace HueRelay.Editor
                     Require(level.w > 0 && level.h > 0 && level.a.Length >= 4 && level.a.Length <= 30, prefix + "Invalid board size.");
                     Require(level.par > 0 && level.moves >= level.par && level.solution.Length == level.par, prefix + "Invalid move budget/route.");
                     Require(level.hints >= 0 && level.erasers >= 0 && level.extraMoves >= 0, prefix + "Invalid inventory.");
+                    Require(level.hints == 1 && level.erasers == (index < 10 ? 1 : 0) && level.extraMoves == 0,
+                        prefix + "Free item budget is incorrect.");
+                    Require(index < 10 || level.moves - level.par == (index < 20 ? 2 : index < 30 ? 1 : 0),
+                        prefix + "Rebalanced move allowance is incorrect.");
                     var occupied = new HashSet<Vector2>();
                     foreach (var arrow in level.a)
                     {
@@ -47,7 +51,7 @@ namespace HueRelay.Editor
                         Require(arrow.cells[last].V - arrow.cells[last - 1].V == HueEngine.Dir(arrow.d), prefix + "Head direction disagrees with body.");
                     }
                     Require(signatures.Add(Signature(level)), prefix + "Duplicate/recolored/reflected layout.");
-                    if (index >= 20) Require(level.a.Select(a => a.c).Distinct().Count() == 3, prefix + "Missing third color.");
+                    if (index >= 10) Require(level.a.Select(a => a.c).Distinct().Count() == 3, prefix + "Missing third color.");
                     if (previous != null)
                     {
                         Require(level.a.Length >= previous.a.Length && level.difficulty > previous.difficulty, prefix + "Difficulty must increase.");

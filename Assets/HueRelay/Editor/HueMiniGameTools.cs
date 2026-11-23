@@ -516,18 +516,20 @@ namespace HueRelay.Editor
                 if (game.Mask != (originalMask & ~1) || game.Score != 0 || game.Taps != 0 || game.ErasersRemaining != 2)
                     throw new Exception("Erasing incorrectly launched a same-color chain.");
                 CompleteResult(game, false);
-                view.eraseButton.onClick.Invoke();
-                if (game.Over || game.ModalVisible || !game.IsChoosingErase)
-                    throw new Exception("Erase could not select a target after failure.");
-                game.TapArrow(1);
+                CheckFailureItemLock(game,view);
+                game.Retry();
+                game.ToggleErase(); game.TapArrow(0);
                 itemStarted = EditorApplication.timeSinceStartup;
                 itemPhase = 4;
                 return;
             }
             if (itemPhase == 4)
             {
-                if (game.Mask != (1 << 2) || game.ErasersRemaining != 1 || game.Taps != 0)
-                    throw new Exception("Failure rescue erased the wrong arrow or spent a move.");
+                if (game.Mask != (originalMask & ~1) || game.ErasersRemaining != 2 || game.Taps != 0)
+                    throw new Exception("Retry after failure did not restore normal item use.");
+                // Isolate the last-arrow erasure without requiring failure rescue.
+                typeof(HueGame).GetProperty("Mask").SetValue(game,1 << 2);
+                Field("eraseUses").SetValue(game,1);
                 game.ToggleErase(); game.TapArrow(2);
                 itemStarted = EditorApplication.timeSinceStartup;
                 itemPhase = 5;
@@ -539,12 +541,38 @@ namespace HueRelay.Editor
             if (!game.Won || game.ErasersRemaining != 0 || game.Taps != 0)
                 throw new Exception("Last-arrow erasure did not finish as a win.");
             game.ResetGame();
+            // Exhausted moves must lock tools even before Finish/ShowSheet runs.
+            typeof(HueGame).GetProperty("Taps").SetValue(game,game.Limit);
+            int oldLimit=game.Limit, oldMask=game.Mask;
+            game.ToggleErase(); game.Hint(); game.AddMoves();
+            if (game.CanHint || game.CanErase || game.CanAddMoves || game.IsChoosingErase
+                || game.Limit!=oldLimit || game.Mask!=oldMask || game.ErasersRemaining!=3
+                || game.HintsRemaining!=3 || game.ExtraMovesRemaining!=1)
+                throw new Exception("Exhausted-move settling allowed an item.");
+            typeof(HueGame).GetMethod("Finish",BindingFlags.Instance|BindingFlags.NonPublic)
+                .Invoke(game,new object[]{false});
+            CheckFailureItemLock(game,view);
             CompleteResult(game, false);
-            game.AddMoves();
-            if (game.Over || game.ModalVisible || game.Limit != originalLimit + 3)
-                throw new Exception("Extra moves did not resume a failed board.");
+            CheckFailureItemLock(game,view);
             CheckResponsiveLayouts(game);
             itemPhase = 6;
+        }
+
+        static void CheckFailureItemLock(HueGame game,HueView view)
+        {
+            int mask=game.Mask,limit=game.Limit,taps=game.Taps,score=game.Score;
+            int hints=game.HintsRemaining,erasers=game.ErasersRemaining,extra=game.ExtraMovesRemaining;
+            bool visible=game.ModalVisible;
+            typeof(HueGame).GetMethod("Render",BindingFlags.Instance|BindingFlags.NonPublic).Invoke(game,null);
+            if (game.CanHint || game.CanErase || game.CanAddMoves || view.hintButton.interactable
+                || view.eraseButton.interactable || view.extraMovesButton.interactable)
+                throw new Exception("A tool is enabled after failure.");
+            view.eraseButton.onClick.Invoke(); view.extraMovesButton.onClick.Invoke(); view.hintButton.onClick.Invoke();
+            game.ToggleErase(); game.AddMoves(); game.Hint(); game.TapArrow(1);
+            if (!game.Over || game.Won || game.ModalVisible!=visible || game.IsChoosingErase || game.IsErasing
+                || game.Mask!=mask || game.Limit!=limit || game.Taps!=taps || game.Score!=score
+                || game.HintsRemaining!=hints || game.ErasersRemaining!=erasers || game.ExtraMovesRemaining!=extra)
+                throw new Exception("An old UI callback modified/resumed a failed board.");
         }
 
         static void CheckResponsiveLayouts(HueGame game)
@@ -578,7 +606,7 @@ namespace HueRelay.Editor
         static void Finish()
         {
             File.WriteAllLines(HueMiniGameTools.ReportDirectory + "/playmode.txt", errors.Count == 0
-                ? new[] { "PASS: all 100 campaign budgets, hint routes, retry resets, chapter transitions and level labels; scene reload with missing item references, immediate startup, concurrent taps during chains/flights/bumps, queued/duplicate tap protection, hint, erase selection/cancel, blocked targets, animated removal, no chain/score/move cost, item limits, retry cancellation, failure rescue, tutorial isolation, eraser last-arrow victory, 500 responsive layouts, victory item lock through settling/bonus/result, win advance, level 100 endless continuation and input" } : errors);
+                ? new[] { "PASS: all 100 campaign budgets, hint routes, retry resets, chapter transitions and level labels; scene reload with missing item references, immediate startup, concurrent taps during chains/flights/bumps, queued/duplicate tap protection, hint, erase selection/cancel, blocked targets, animated removal, no chain/score/move cost, item limits, retry cancellation, failure item lock before/during/after result with stale callbacks, tutorial isolation, eraser last-arrow victory, 500 responsive layouts, victory item lock through settling/bonus/result, win advance, level 100 endless continuation and input" } : errors);
             SessionState.SetBool(HueMiniGameTools.ValidationKey, false);
             Application.logMessageReceived -= OnLog;
             EditorApplication.update -= Tick;

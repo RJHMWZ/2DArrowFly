@@ -810,6 +810,7 @@ namespace HueRelay
                 return;
             Over = true;
             Won = win;
+            CancelErase();
             endAt = now;
             remaining = Mathf.Max(0, Limit - Taps);
             if (!win)
