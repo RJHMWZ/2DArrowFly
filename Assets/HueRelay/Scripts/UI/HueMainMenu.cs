@@ -31,6 +31,10 @@ namespace HueRelay
         [SerializeField, HideInInspector] private bool settingsFromPause;
         [SerializeField, HideInInspector] private List<GameObject> hiddenForPauseSettings = new List<GameObject>();
         private RectTransform hiddenPauseCard;
+        private Vector2 validSettingsPosition = new Vector2(40, -55);
+        private Vector2 validSettingsSize = new Vector2(52, 52);
+        private HueRetentionMenu retentionMenu;
+        private HueRetentionMenu RetentionMenu => retentionMenu ? retentionMenu : (retentionMenu = GetComponent<HueRetentionMenu>());
         public bool IsPauseSettingsOpen => settingsFromPause;
         public bool IsVisible => menuCanvas && menuCanvas.enabled && !settingsFromPause;
 
@@ -136,6 +140,7 @@ namespace HueRelay
             HueSafeArea.Refresh();
             BindButtons();
             CloseSettings();
+            if (RetentionMenu) { RetentionMenu.Close(); RetentionMenu.retention.Refresh(); }
             levelLabel.text = game.ResumeButtonLabel;
             SetCanvas(view.canvas, false);
             SetCanvas(menuCanvas, true);
@@ -144,7 +149,7 @@ namespace HueRelay
 
         public void Play()
         {
-            if (!IsVisible || settingsOverlay.activeSelf) return;
+            if (!IsVisible || settingsOverlay.activeSelf || RetentionMenu && RetentionMenu.IsOpen) return;
             game.BeginFromMenu();
         }
 
@@ -152,6 +157,7 @@ namespace HueRelay
         {
             if (!ResolveBindings()) return;
             CloseSettings();
+            if (RetentionMenu) RetentionMenu.Close();
             SetCanvas(menuCanvas, false);
             SetCanvas(view.canvas, true);
         }
@@ -166,6 +172,8 @@ namespace HueRelay
         public void OpenSettings()
         {
             if (!IsVisible || !settingsOverlay) return;
+            if (RetentionMenu) RetentionMenu.Close();
+            settingsOverlay.transform.SetAsLastSibling();
             settingsOverlay.SetActive(true); RefreshSettings();
         }
 
@@ -258,28 +266,86 @@ namespace HueRelay
 
         public void Layout(float width, float height, Rect safeArea)
         {
+            // Device Simulator and Game View can briefly report an empty viewport.
+            // Never let division by zero poison RectTransform's persistent geometry.
+            if (!Finite(width) || !Finite(height) || width < 1 || height < 1) return;
+            if (!Finite(safeArea.position) || !Finite(safeArea.size) || safeArea.width <= 0 || safeArea.height <= 0)
+                safeArea = new Rect(0, 0, width, height);
+            else
+            {
+                float xMin = Mathf.Clamp(safeArea.xMin, 0, width), xMax = Mathf.Clamp(safeArea.xMax, 0, width);
+                float yMin = Mathf.Clamp(safeArea.yMin, 0, height), yMax = Mathf.Clamp(safeArea.yMax, 0, height);
+                safeArea = xMax > xMin && yMax > yMin ? Rect.MinMaxRect(xMin, yMin, xMax, yMax)
+                    : new Rect(0, 0, width, height);
+            }
             float scale = Mathf.Min(width / 390f, height / 640f);
             scaler.scaleFactor = scale;
             float w = width / scale, h = height / scale;
             float top = HueSafeArea.TopPixels(width, height, safeArea) / scale, bottom = safeArea.yMin / scale;
-            float usable = h - top - bottom;
-            Place(logo, w * .5f, top + usable * .275f,
-                Mathf.Clamp(logoSize.x, 1, Mathf.Max(1, w - 48)), Mathf.Max(1, logoSize.y));
+            float left = safeArea.xMin / scale, right = (width - safeArea.xMax) / scale;
+            float usable = h - top - bottom, contentWidth = w - left - right;
+            float center = left + contentWidth * .5f;
+            Place(logo, center, top + usable * .275f,
+                Mathf.Clamp(logoSize.x, 1, Mathf.Max(1, contentWidth - 48)), Mathf.Max(1, logoSize.y));
             logo.localScale = Vector3.one;
-            Place(levelButton.GetComponent<RectTransform>(), w * .5f, top + usable * .72f, 296, 72);
-            // Inset the parent, keeping the button's scene-authored position/size.
-            settingsSafeArea.offsetMin = Vector2.zero;
-            settingsSafeArea.offsetMax = new Vector2(0, -top);
+            Place(levelButton.GetComponent<RectTransform>(), center, top + usable * .72f, Mathf.Max(1, Mathf.Min(296, contentWidth - 32)), 72);
+            // Write absolute values: offsetMin/offsetMax setters calculate a delta
+            // from the previous geometry and cannot recover after it becomes NaN.
+            settingsSafeArea.anchorMin = Vector2.zero;
+            settingsSafeArea.anchorMax = Vector2.one;
+            settingsSafeArea.pivot = new Vector2(.5f, .5f);
+            settingsSafeArea.sizeDelta = new Vector2(-left - right, -top);
+            settingsSafeArea.anchoredPosition = new Vector2((left - right) * .5f, -top * .5f);
+            var settings = (RectTransform)settingsButton.transform;
+            if (Finite(settings.sizeDelta) && settings.sizeDelta.x > 0 && settings.sizeDelta.y > 0)
+                validSettingsSize = settings.sizeDelta;
+            if (Finite(settings.anchoredPosition)) validSettingsPosition = settings.anchoredPosition;
+            RepairRect(settings, validSettingsPosition, validSettingsSize);
+            var gear = settingsButton.GetComponentInChildren<HueSettingsIcon>(true);
+            if (gear) RepairRect(gear.rectTransform, Vector2.zero, new Vector2(28, 28));
+            RepairDescendants(settings);
             if (settingsLabel && settingsLabel.gameObject.activeSelf) settingsLabel.gameObject.SetActive(false);
-            Place(settingsCard, w * .5f, top + usable * .5f, 326, 292);
+            Place(settingsCard, center, top + usable * .5f, 326, 292);
+            settingsCard.localScale = Vector3.one * Mathf.Max(.1f, Mathf.Min(1, (contentWidth - 32) / 326, (usable - 24) / 292));
+            if (RetentionMenu) RetentionMenu.Layout(w, h, top, bottom, left, right);
+        }
+
+        internal static bool Finite(float value) => !float.IsNaN(value) && !float.IsInfinity(value);
+        internal static bool Finite(Vector2 value) => Finite(value.x) && Finite(value.y);
+
+        internal static void RepairRect(RectTransform rect, Vector2 position, Vector2 size)
+        {
+            if (!Finite(rect.anchorMin) || !Finite(rect.anchorMax)) rect.anchorMin = rect.anchorMax = new Vector2(.5f, .5f);
+            if (!Finite(rect.pivot)) rect.pivot = new Vector2(.5f, .5f);
+            var currentSize = rect.sizeDelta;
+            if (!Finite(currentSize)) rect.sizeDelta = new Vector2(Finite(currentSize.x) ? currentSize.x : size.x,
+                Finite(currentSize.y) ? currentSize.y : size.y);
+            var currentPosition = rect.anchoredPosition;
+            if (!Finite(currentPosition)) rect.anchoredPosition = new Vector2(Finite(currentPosition.x) ? currentPosition.x : position.x,
+                Finite(currentPosition.y) ? currentPosition.y : position.y);
+            var local = rect.localScale;
+            if (!Finite(local.x) || !Finite(local.y) || !Finite(local.z)) rect.localScale = Vector3.one;
+        }
+
+        internal static void RepairDescendants(RectTransform parent)
+        {
+            foreach (Transform child in parent)
+            {
+                var rect = child as RectTransform;
+                if (!rect) continue;
+                var fallbackSize = new Vector2(rect.anchorMin.x == rect.anchorMax.x ? parent.rect.width : 0,
+                    rect.anchorMin.y == rect.anchorMax.y ? parent.rect.height : 0);
+                RepairRect(rect, Vector2.zero, fallbackSize);
+                RepairDescendants(rect);
+            }
         }
 
         private static void Place(RectTransform rect, float x, float y, float w, float h)
         {
             rect.anchorMin = rect.anchorMax = new Vector2(0, 1);
             rect.pivot = new Vector2(.5f, .5f);
-            rect.anchoredPosition = new Vector2(x, -y);
             rect.sizeDelta = new Vector2(w, h);
+            rect.anchoredPosition = new Vector2(x, -y);
         }
     }
 }

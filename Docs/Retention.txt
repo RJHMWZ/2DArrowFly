@@ -1,0 +1,50 @@
+TikTok 留存入口
+
+入口与交互
+- HueRelay 场景的 MainMenu/RetentionEntries：Profile、Home screen 两个常驻入口。
+- 设置按钮位于左上方；两个留存入口位于 Logo 下方同一高度的左右两侧。入口图标大小及灰紫色跟随设置图标；首页仅显示图标，不显示名称和奖励数量。
+- 与现有游戏一致的蓝白色界面、箭头/手机图标；弹窗采用白色圆角卡片、三步说明、提示奖励和底部单个主操作。
+- 快捷方式窗口采用紧凑排版；侧边栏复访窗口包含 TikTok 个人主页菜单和 Minis 列表示意，配合手势图指引。
+- 关闭按钮和点击外侧遮罩均可退出；点击卡片内容不会误关闭。
+- Profile 奖励为一次性 1 个 Hint，Home screen 为一次性 2 个 Hints。
+- 已领取后仍保留入口；支持的设备上可继续打开 Profile 或重新添加快捷方式。
+- 沿用当前启动流程：首次启动教学，后续直接游戏；从暂停或结算中的 Home 返回主菜单可看到两个入口。
+
+平台调用
+- HueRetentionPlatform 复用项目已安装的 TTSDK，不修改 IvyMiniGame 或 TikTok SDK。
+- TTSDK.CanIUse.StartEntranceMission / AddShortcut 检查入口能力。
+- TT.StartEntranceMission / TT.AddShortcut 仅执行跳转或加桌，不直接发奖。
+- TTSDK.CanIUse.GetEntranceMissionReward / GetShortcutMissionReward 检查核验能力。
+- TT.GetEntranceMissionReward 的 canReceiveReward，以及 TT.GetShortcutMissionReward 的 CanReceiveReward 为 true 时才发奖。
+- Unity SDK 上述接口对应文档中的 TTMinis.game 同名 API。
+- 真机调用限定 IVY_SDK_TT、UNITY_WEBGL 且非 UNITY_EDITOR / UNITY_LUNA。
+- 编辑器和其他平台展示可关闭的引导及不可用提示，不模拟加桌、跳转成功或奖励资格。
+
+生命周期与存档
+- 启动、TTAppLifeCycle.OnShow、Unity 恢复焦点/前台以及打开引导时刷新资格。
+- 留存控制器位于常驻 MainMenu 对象，不依赖 Canvas 是否显示；冷启动从快捷方式进入也会核验。
+- 返回前台会使旧查询失效，避免旧的无资格回调覆盖新入口的资格。
+- 请求防重入、重复回调去重、20 秒超时；关闭始终可用，接口失败不会阻止游玩。
+- HuePowerUpInventory 的 cc_powerups_v1 JSON 同时保存余额和 profileRewardClaimed / shortcutRewardClaimed。
+- 兼容旧存档；每种奖励只发放一次。没有引入每日奖励或根据跳转成功自行推定资格。
+- 与现有道具一样使用本机存档；清除应用数据后本机记录也会清除。
+
+本地检查
+- Tools/Hue Relay/Retention/Check menu adaptation：检查六种竖屏/横屏安全区域、零尺寸切换帧、非法安全区及 NaN 坐标恢复，报告和预览保存于 Logs/MenuAdaptation。
+- 主菜单忽略设备切换时的无效尺寸，使用绝对几何值刷新安全区域，并恢复已被污染的按钮及子节点；适配上下刘海/手势区域和横屏左右避让。
+- Unity 菜单 Tools/Hue Relay/Retention/Capture previews：生成 Logs/Retention 的九张预览。
+- 在 Play 模式执行 Tools/Hue Relay/Retention/Run runtime checks。
+- 在 Play 模式执行 Tools/Hue Relay/Retention/Run pointer checks，等待数帧后查看 Logs/Retention/pointer-checks.txt。
+- 检查使用独立临时存档和可控平台回调，结束后恢复玩家道具库存。
+- 覆盖能力缺失、取消/失败、无资格、重复与过期回调、冷启动/恢复、一次性奖励、重启存档、旧存档、超时，以及实际 UI 射线遮挡和关闭。
+- 已对平台适配文件以 IVY_SDK_TT、UNITY_WEBGL 编译符号，引用项目 ttsdk.dll 单独编译核对。
+
+真机验收
+1. 从 Unity 重新导出 TikTok 小游戏，使新增脚本和场景进入构建产物；本次未修改旧导出目录。
+2. 在导出的项目中执行 ttmg dev，按平台文档新建启动模式。
+3. 普通启动：打开 Profile 引导，执行 Get started，从个人主页菜单 > Minis > Combo Arrow 返回，核验资格和提示数量。
+4. 桌面入口：打开 Home screen，执行 Add，按客户端步骤添加，再从快捷方式启动；核验资格和提示数量。
+5. 分别使用侧边栏入口、桌面入口模拟启动模式，验证 canReceiveReward 返回与 +1 / +2 实际发放。
+6. 每个入口重复打开、恢复前台、重启后确认不重复发奖；已领取仍可重新添加快捷方式。
+7. 取消系统弹窗、无入口权限、旧客户端、回调失败时，确认能关闭引导并正常开始游戏。
+8. 分别在符合开放条件的 Android / iOS 和目标地区账号上验证。编辑器检查不能替代客户端入口验收。

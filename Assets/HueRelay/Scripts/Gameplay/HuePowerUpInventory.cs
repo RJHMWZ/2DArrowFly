@@ -11,6 +11,7 @@ namespace HueRelay
         {
             public int version = 1;
             public int hints, erasers, extraMoves;
+            public bool profileRewardClaimed, shortcutRewardClaimed;
         }
         private readonly string key;
         private SaveData data;
@@ -56,6 +57,21 @@ namespace HueRelay
             int count = Count(kind);
             Set(kind, amount > int.MaxValue - count ? int.MaxValue : count + amount);
             Save();
+        }
+        public bool HasClaimedRetentionReward(HueRetentionKind kind) => kind == HueRetentionKind.Profile
+            ? data.profileRewardClaimed : data.shortcutRewardClaimed;
+
+        public bool TryClaimRetentionReward(HueRetentionKind kind)
+        {
+            if (HasClaimedRetentionReward(kind)) return false;
+            int amount = HueRetention.RewardAmount(kind);
+            data.hints = data.hints > int.MaxValue - amount ? int.MaxValue : data.hints + amount;
+            if (kind == HueRetentionKind.Profile) data.profileRewardClaimed = true;
+            else data.shortcutRewardClaimed = true;
+            // Receipt and balance are persisted in the same JSON snapshot. A duplicate
+            // callback, reopening the panel or restarting cannot repeat the grant.
+            Save();
+            return true;
         }
         private void Set(HuePowerUpKind kind, int count)
         {

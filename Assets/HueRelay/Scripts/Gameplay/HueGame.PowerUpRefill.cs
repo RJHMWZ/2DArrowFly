@@ -24,6 +24,8 @@ namespace HueRelay
             }
         }
         private HuePowerUpInventory Inventory => inventory ?? (inventory = new HuePowerUpInventory(PowerUpSettings));
+        public bool HasClaimedRetentionReward(HueRetentionKind kind) => Inventory.HasClaimedRetentionReward(kind);
+        public bool TryClaimRetentionReward(HueRetentionKind kind) => Inventory.TryClaimRetentionReward(kind);
         // Adapter contract: callback(true) only after confirmed full playback.
         // Cancellation, unavailable ad or playback failure must call callback(false).
         public event Action<HuePowerUpKind, Action<bool>> RewardedAdRequested;

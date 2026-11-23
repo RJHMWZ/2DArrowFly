@@ -52,6 +52,13 @@ namespace HueRelay.Editor
             else if (!view.ValidateBindings(out var reason)) errors.Add(reason);
             else if (view.canvas.GetComponent<CanvasScaler>().uiScaleMode != CanvasScaler.ScaleMode.ConstantPixelSize)
                 errors.Add("游戏 Canvas 需要使用 Constant Pixel Size。");
+            var retention = UnityEngine.Object.FindObjectOfType<HueRetentionMenu>(true);
+            if (!retention || !retention.retention || !retention.entries || !retention.profileButton
+                || !retention.shortcutButton || !retention.overlay || !retention.card || !retention.actionButton
+                || !retention.closeButton || !retention.laterButton || !retention.rewardIcon || !retention.retention.game
+                || !retention.profilePreview || !retention.minisPreview || !retention.rewardGroup
+                || retention.stepNumbers == null || retention.stepNumbers.Length != 3 || retention.stepNumbers.Any(n => !n))
+                errors.Add("TikTok retention entries, guide or reward controller bindings are missing.");
             if (view != null && view.ValidateBindings(out _))
             {
                 var icons = view.powerUpBar.GetComponentsInChildren<Image>(true).Where(i => i.gameObject.name == "Icon").ToArray();

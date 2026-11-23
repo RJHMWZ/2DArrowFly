@@ -77,6 +77,7 @@ namespace HueRelay.Editor
             menu.closeButton = Button("CloseSettingsButton", card.transform, HueGame.Blue, "Done", Color.white, 18, 278, 48);
             Box(menu.closeButton.GetComponent<RectTransform>(), 0, -95, 278, 48);
             menu.CloseSettings();
+            HueRetentionTools.Build();
             menu.Layout(390, 844, new Rect(0, 0, 390, 844));
             EditorSceneManager.MarkSceneDirty(game.gameObject.scene);
         }
@@ -198,8 +199,9 @@ namespace HueRelay.Editor
             if (!menu || menu.IsVisible || !menu.view.canvas.enabled || menu.game.TutorialStepIndex >= 0)
                 throw new Exception("Returning startup must show gameplay and hide the menu after tutorial completion.");
             menu.Show();
-            if (menu.GetComponentsInChildren<Button>().Length != 2)
-                throw new Exception("Main menu must expose exactly two buttons.");
+            int expectedButtons = menu.GetComponent<HueRetentionMenu>() ? 4 : 2;
+            if (menu.GetComponentsInChildren<Button>().Length != expectedButtons)
+                throw new Exception("Main menu must expose Play, Settings and the authored retention entries.");
             if (menu.levelLabel.text != menu.game.ResumeButtonLabel)
                 throw new Exception("Menu level label is incorrect.");
             // Reproduce UnityEvents losing runtime callbacks across reload while
