@@ -7147,6 +7147,7 @@ MonoBehaviour:
   m_EditorClassIdentifier: 
   sceneView: {fileID: 1356668497}
   audioBus: {fileID: 1429715145}
+  powerUpConfig: {fileID: 11400000, guid: 0077cd4e7401404890849abc70e6133c, type: 2}
 --- !u!4 &1429715144
 Transform:
   m_ObjectHideFlags: 0

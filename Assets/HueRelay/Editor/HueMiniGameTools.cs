@@ -78,6 +78,14 @@ namespace HueRelay.Editor
             var enabledScenes = EditorBuildSettings.scenes.Where(s => s.enabled).ToArray();
             if (enabledScenes.Length != 1 || enabledScenes[0].path != ScenePath)
                 errors.Add("Build Settings 只应启用 HueRelay 场景。");
+            var powerUps = Resources.Load<HuePowerUpConfig>("HueRelay/Data/PowerUps");
+            if (!powerUps || powerUps.initialHints < 0 || powerUps.initialErasers < 0
+                || powerUps.initialExtraMoves < 0 || powerUps.rewardedAmount < 1)
+                errors.Add("Global PowerUps configuration is missing or invalid.");
+            var refill = Resources.Load<HuePowerUpRefillPanel>("HueRelay/UI/PowerUpRefill");
+            if (!refill || !refill.card || !refill.title || !refill.itemIcon || !refill.amountLabel
+                || !refill.message || !refill.watchButton || !refill.closeButton)
+                errors.Add("PowerUpRefill prefab bindings are missing.");
             errors.AddRange(HueCampaignValidation.Validate());
             return errors;
         }
@@ -201,6 +209,7 @@ namespace HueRelay.Editor
                 if (!campaignChecked)
                 {
                     if (!HuePauseMenuChecks.Tick(game,currentView)) return;
+                    if (!HuePowerUpChecks.Tick(game,currentView)) return;
                     float expectedScale = Screen.width > Screen.height ? Screen.height / 800f : Screen.width / 390f;
                     if (Mathf.Abs(currentView.canvas.scaleFactor - expectedScale) > .001f)
                         throw new Exception("Recovered startup did not apply the game canvas scale.");
@@ -250,7 +259,7 @@ namespace HueRelay.Editor
                     }
                     if (!game.Endless || game.Over || game.ModalVisible) throw new Exception("Final-level continue did not enter endless play.");
                     // Verify the new board still accepts an actual free-arrow tap.
-                    Field("built").SetValue(game, Time.unscaledTime - 10);
+                    Field("built").SetValue(game, GameClock(game) - 10);
                     var best = HueEngine.Best(game.P, game.Mask, new HueRandom(7), 300);
                     int mask = game.Mask;
                     game.TapArrow(best.first);
@@ -277,6 +286,7 @@ namespace HueRelay.Editor
         }
 
         static FieldInfo Field(string name) => typeof(HueGame).GetField(name, BindingFlags.Instance | BindingFlags.NonPublic);
+        static float GameClock(HueGame game) => (float)typeof(HueGame).GetProperty("GameTime", BindingFlags.Instance | BindingFlags.NonPublic).GetValue(game);
 
         static void CheckGuidedLevels(HueGame game, HueView view)
         {
@@ -285,7 +295,7 @@ namespace HueRelay.Editor
             if (guidedPhase == 0)
             {
                 game.StartLevel(guidedLevel);
-                Field("built").SetValue(game, Time.unscaledTime - 10);
+                Field("built").SetValue(game, GameClock(game) - 10);
                 guidedPhase = 1;
                 guidedStarted = EditorApplication.timeSinceStartup;
             }
@@ -317,7 +327,7 @@ namespace HueRelay.Editor
                 return;
             }
             render.Invoke(game,null);
-            Field("hintAt").SetValue(game, Time.unscaledTime-1);
+            Field("hintAt").SetValue(game, GameClock(game)-1);
             render.Invoke(game,null);
             int target = (int)Field("hintId").GetValue(game);
             if (!view.finger.gameObject.activeSelf || target < 0 || game.CanHint || game.CanErase || game.CanAddMoves)
@@ -351,7 +361,7 @@ namespace HueRelay.Editor
                     new ArrowData("A", "r", new[] { new Cell(0, 3), new Cell(1, 3) })
                 })));
                 game.ResetGame();
-                Field("built").SetValue(game, Time.unscaledTime - 10);
+                Field("built").SetValue(game, GameClock(game) - 10);
                 game.TapArrow(0);
                 if (!(bool)Field("busy").GetValue(game)) throw new Exception("Overlap fixture did not start an automatic chain.");
                 int pendingMask = game.Mask;
@@ -373,7 +383,7 @@ namespace HueRelay.Editor
             {
                 if (game.Mask != 8 || game.Taps != 2) throw new Exception("The original automatic chain was lost or charged an extra move.");
                 game.ResetGame();
-                Field("built").SetValue(game, Time.unscaledTime - 10);
+                Field("built").SetValue(game, GameClock(game) - 10);
                 game.TapArrow(2);
                 if ((bool)Field("busy").GetValue(game) || game.Idle) throw new Exception("Flight-only fixture was not active.");
                 game.TapArrow(3);
@@ -387,7 +397,7 @@ namespace HueRelay.Editor
             {
                 if (game.Mask != 3 || game.Taps != 2) throw new Exception("Concurrent manual flights changed the wrong arrows.");
                 game.ResetGame();
-                Field("built").SetValue(game, Time.unscaledTime - 10);
+                Field("built").SetValue(game, GameClock(game) - 10);
                 game.TapArrow(1); // Blocked: it animates a collision instead of launching.
                 game.TapArrow(2);
                 game.TapArrow(1);
@@ -410,7 +420,7 @@ namespace HueRelay.Editor
                 }));
                 typeof(HueGame).GetProperty("P").SetValue(game, puzzle);
                 game.ResetGame();
-                Field("built").SetValue(game, Time.unscaledTime - 10);
+                Field("built").SetValue(game, GameClock(game) - 10);
                 game.TapArrow(0);
                 typeof(HueGame).GetMethod("Render", BindingFlags.Instance | BindingFlags.NonPublic).Invoke(game, null);
                 winCheckStarted = true;
@@ -450,6 +460,7 @@ namespace HueRelay.Editor
                 game.ResetGame();
                 originalMask = game.Mask;
                 originalLimit = game.Limit;
+                HuePowerUpChecks.InstallInventory(game,3,3,1);
                 if (!game.CanErase || game.ErasersRemaining != 3 || game.ExtraMovesRemaining != 1)
                     throw new Exception("Fresh-board item state is incorrect.");
                 view.hintButton.onClick.Invoke();
@@ -486,13 +497,14 @@ namespace HueRelay.Editor
             {
                 if (game.Mask != (originalMask & ~(1 << 1)) || game.Taps != 0 || game.Score != 0 || game.ErasersRemaining != 2)
                     throw new Exception("Erasing removed another arrow, spent a move, or awarded launch points.");
-                view.extraMovesButton.onClick.Invoke(); view.extraMovesButton.onClick.Invoke();
+                view.extraMovesButton.onClick.Invoke();
                 if (game.Limit != originalLimit + 3 || game.ExtraMovesRemaining != 0)
                     throw new Exception("Extra moves did not add exactly three steps once.");
                 game.ToggleErase(); game.TapArrow(0); game.Retry();
-                if (game.IsErasing || game.IsChoosingErase || game.Limit != originalLimit || game.ErasersRemaining != 3
-                    || game.HintsRemaining != 3 || game.ExtraMovesRemaining != 1)
-                    throw new Exception("Retry did not cancel animation and reset inventory/moves.");
+                if (game.IsErasing || game.IsChoosingErase || game.Limit != originalLimit || game.ErasersRemaining != 1
+                    || game.HintsRemaining != 2 || game.ExtraMovesRemaining != 0)
+                    throw new Exception("Retry did not cancel animation or retained the wrong global inventory.");
+                HuePowerUpChecks.InstallInventory(game,3,3,1);
                 itemStarted = EditorApplication.timeSinceStartup;
                 itemPhase = 2;
                 return;
@@ -525,11 +537,11 @@ namespace HueRelay.Editor
             }
             if (itemPhase == 4)
             {
-                if (game.Mask != (originalMask & ~1) || game.ErasersRemaining != 2 || game.Taps != 0)
+                if (game.Mask != (originalMask & ~1) || game.ErasersRemaining != 1 || game.Taps != 0)
                     throw new Exception("Retry after failure did not restore normal item use.");
                 // Isolate the last-arrow erasure without requiring failure rescue.
                 typeof(HueGame).GetProperty("Mask").SetValue(game,1 << 2);
-                Field("eraseUses").SetValue(game,1);
+                HuePowerUpChecks.InstallInventory(game,3,1,1);
                 game.ToggleErase(); game.TapArrow(2);
                 itemStarted = EditorApplication.timeSinceStartup;
                 itemPhase = 5;
@@ -542,6 +554,7 @@ namespace HueRelay.Editor
                 throw new Exception("Last-arrow erasure did not finish as a win.");
             game.ResetGame();
             // Exhausted moves must lock tools even before Finish/ShowSheet runs.
+            HuePowerUpChecks.InstallInventory(game,3,3,1);
             typeof(HueGame).GetProperty("Taps").SetValue(game,game.Limit);
             int oldLimit=game.Limit, oldMask=game.Mask;
             game.ToggleErase(); game.Hint(); game.AddMoves();

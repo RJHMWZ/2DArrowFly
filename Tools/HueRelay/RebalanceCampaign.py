@@ -61,7 +61,6 @@ def build(source,seed):
     original=json.loads(source.read_text(encoding='utf-8'))
     levels=copy.deepcopy(original['levels'][:10])
     for level in levels:
-        level.update(hints=1,erasers=1,extraMoves=0)
         level['design'].update(measure(level))
     signatures={author.geometry_signature(l) for l in levels}
     author.CHAPTERS=PROFILES
@@ -101,20 +100,22 @@ def build(source,seed):
     for before,after in zip(original['levels'][:10],levels[:10]):
         for key in ('a','w','h','par','moves','solution','guidedChains'):
             assert before.get(key)==after.get(key), (before['id'],key)
-    for level in levels: validate(level)
+    for level in levels:
+        validate(level)
+        for key in ('hints','erasers','extraMoves'): level.pop(key,None)
     return levels
 
 def report(levels,seed):
     lines=['# Hue Relay：100 关难度调整', '',
-        '前 10 关保留布局、标准解、教学和步数。道具改为每关 1 次提示、1 次擦除、0 次加步数；第 11 关起为 1 / 0 / 0。每次重试仍按本关配额重置，不引入共享库存或广告。', '',
+        '前 10 关保留布局、标准解、教学和步数。道具已改为全局持久库存，首次启动每种赠送 3 个，跨关卡和重试不重置；初始数量及广告奖励数量统一配置于 Assets/HueRelay/Resources/HueRelay/Data/PowerUps.asset。关卡数据不再配置道具配额。', '',
         '第 11 关起重选三色布局，更早增加箭头数、阻挡依赖及顺序选择代价；31 关起步数上限等于已证明的标准最短解。所有关卡可不使用道具通关，箭头上限维持 30。', '',
         '难度字段是关卡进度标尺，不是玩家通关率。下表的随机通关率是离线合法随机点击、等待连锁完成后的采样结果，不代表真人或并行点击通关率；“三天”目标仍须用玩家试玩、每关耗时和重试数据校准。', '',
-        '| 关卡 | 棋盘 | 箭头 | 最短步数 | 上限 | 提示/擦除/加步数 | 依赖深度 | 顺序损失 | 随机通关率（64 次；前十128次） |',
-        '|---|---|---|---|---|---|---|---|---|']
+        '| 关卡 | 棋盘 | 箭头 | 最短步数 | 上限 | 依赖深度 | 顺序损失 | 随机通关率（64 次；前十128次） |',
+        '|---|---|---|---|---|---|---|---|']
     for l in levels:
         d=l['design']
         lines.append(f"| {l['id']} | {l['w']}×{l['h']} | {len(l['a'])} | {l['par']} | {l['moves']} | "
-                     f"{l['hints']}/{l['erasers']}/{l['extraMoves']} | {d['depth']} | {d['orderGap']:.2f} | {d['randomClearRate']:.1%} |")
+                     f"{d['depth']} | {d['orderGap']:.2f} | {d['randomClearRate']:.1%} |")
     lines+=['','生成：`python Tools/HueRelay/RebalanceCampaign.py --seed '+str(seed)+'`。固定种子、首十关保留和几何去重检查；新关卡使用现有 A* 求解器证明最短解。',
         '关卡版本改为 `hue100_v2`，避免将旧布局最高分混入新布局。旧最高分数据保留，不删除。',
         '此前 Campaign100Preview.png 为旧版预览，本次不作为新关卡截图。','']

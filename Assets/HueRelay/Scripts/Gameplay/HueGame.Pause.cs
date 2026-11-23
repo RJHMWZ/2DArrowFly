@@ -12,7 +12,7 @@ namespace HueRelay
 
         public void OpenPause()
         {
-            if (!enabled || !root || P == null || generating || Over || Mask == 0 || IsPaused
+            if (!enabled || !root || P == null || generating || Over || Mask == 0 || IsPaused || refillOpen
                 || (mainMenu && mainMenu.IsVisible)) return;
             if (!pauseMenu) pauseMenu = sceneView.canvas.GetComponentInChildren<HuePauseMenu>(true);
             if (!pauseMenu || !pauseMenu.ResolveBindings()) return;

@@ -151,7 +151,7 @@ namespace HueRelay
         public int LevelCount => levels != null ? levels.Length : 0;
         public bool IsLastCampaignLevel => !Endless && LevelIndex == LevelCount - 1;
         private int par;
-        private int hints = 3;
+        private int hints => Inventory.Count(HuePowerUpKind.Hint);
         private int bestScore;
         private int seed;
         private int chainN;
@@ -493,6 +493,7 @@ namespace HueRelay
         /// </summary>
         public void ResetGame()
         {
+            DismissPowerUpRefill(false);
             ResumePause();
             StopAllCoroutines();
             generating = false;
@@ -502,9 +503,6 @@ namespace HueRelay
             Mask = P.Full;
             Taps = Score = 0;
             ds = 0;
-            hints = Mathf.Max(0, P.L.hints);
-            eraseUses = Mathf.Max(0, P.L.erasers);
-            extraMoveUses = Mathf.Max(0, P.L.extraMoves);
             Limit = baseMoveLimit;
             CancelErase();
             q.Clear();
@@ -564,13 +562,14 @@ namespace HueRelay
         /// </summary>
         public void Hint()
         {
-            if (!CanHint)
+            if (!CanRequestHint)
                 return;
+            if (hints == 0) { OpenPowerUpRefill(HuePowerUpKind.Hint); return; }
             int suggested = CampaignHint();
             if (suggested < 0) suggested = Best(P, Mask, hintRandom, 300).first;
             if (suggested < 0)
                 return;
-            hints--;
+            if (!Inventory.TrySpend(HuePowerUpKind.Hint)) return;
             hintId = suggested;
             hintAt = now;
             audioBus.Tone(660, .14, .08);
@@ -676,7 +675,7 @@ namespace HueRelay
         /// <param name="bi">命中的箭头编号。</param>
         public void TapArrow(int bi)
         {
-            if (IsPaused) return;
+            if (IsPaused || refillOpen) return;
             if (IsChoosingErase)
             {
                 SelectEraseArrow(bi);
@@ -770,7 +769,7 @@ namespace HueRelay
         /// <param name="p">相对于整个界面的逻辑像素点击位置。</param>
         private void Pointer(Vector2 p)
         {
-            if (IsPaused || Time.frameCount == resumedFrame || generating || sceneView.BlocksBoardPointer(p, pixelScale))
+            if (IsPaused || refillOpen || Time.frameCount == resumedFrame || generating || sceneView.BlocksBoardPointer(p, pixelScale))
                 return;
             if (p.x < ox || p.x > ox + P.L.w * cs || p.y < oy || p.y > oy + P.L.h * cs)
                 return;
@@ -885,10 +884,11 @@ namespace HueRelay
             if (mainMenu && mainMenu.IsVisible) return;
             if (Input.GetKeyDown(KeyCode.Escape))
             {
-                if (IsPaused) ResumePause(); else OpenPause();
+                if (refillOpen) ClosePowerUpRefill();
+                else if (IsPaused) ResumePause(); else OpenPause();
                 return;
             }
-            if (IsPaused) { Layout(); Render(); return; }
+            if (IsPaused || refillOpen) { Layout(); Render(); return; }
             now = GameTime;
             dt = Mathf.Min(.05f, Time.unscaledDeltaTime);
             Layout();
@@ -1015,6 +1015,7 @@ namespace HueRelay
         /// </summary>
         private void OnDestroy()
         {
+            refillRequest++;
             timed.Clear();
             StopAllCoroutines();
         }

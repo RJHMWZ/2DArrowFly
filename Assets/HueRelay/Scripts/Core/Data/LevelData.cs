@@ -89,9 +89,6 @@ namespace HueRelay
         public float difficulty;
         [Min(0)] public int par;
         [Min(0)] public int moves;
-        [Min(0)] public int hints = 3;
-        [Min(0)] public int erasers = 3;
-        [Min(0)] public int extraMoves = 1;
         public int[] solution;
         public bool guidedChains;
 

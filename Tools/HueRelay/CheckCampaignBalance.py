@@ -42,14 +42,14 @@ def main():
         signature=geometry_signature(l)
         assert signature not in signatures,l['id']
         signatures.add(signature)
-        assert l['hints']==1 and l['erasers']==(1 if i<10 else 0) and l['extraMoves']==0
+        assert all(key not in l for key in ('hints','erasers','extraMoves')), 'Inventory must be global.'
         if i>=10:
             assert l['moves']-l['par']==(2 if i<20 else 1 if i<30 else 0),l['id']
             assert len({a['c'] for a in l['a']})==3
             assert l['design']['orderGap']>=MIN_GAP[i//10]+(i%10)*.035,l['id']
     old_stats=stats(before,0xA02123,512) if before else None
     new_stats=stats(levels,0xA02123,512)
-    print('PASS: 100 unique valid routes; reduced items; increasing order-loss selection thresholds.'
+    print('PASS: 100 unique valid routes; inventory removed from level data; increasing order-loss selection thresholds.'
           + (' First ten puzzles/routes/budgets preserved.' if before else ''))
     print('Independent 512-rollout legal random policy per level; these are NOT human pass rates:')
     print('Levels | old/new arrows avg | old/new order loss avg | old/new random clear rate | old/new greedy clear rate (128 trials)'

@@ -31,9 +31,6 @@ namespace HueRelay.Editor
                     Require(!string.IsNullOrEmpty(level.title) && level.title.All(c => c < 128), prefix + "Title must be English.");
                     Require(level.w > 0 && level.h > 0 && level.a.Length >= 4 && level.a.Length <= 30, prefix + "Invalid board size.");
                     Require(level.par > 0 && level.moves >= level.par && level.solution.Length == level.par, prefix + "Invalid move budget/route.");
-                    Require(level.hints >= 0 && level.erasers >= 0 && level.extraMoves >= 0, prefix + "Invalid inventory.");
-                    Require(level.hints == 1 && level.erasers == (index < 10 ? 1 : 0) && level.extraMoves == 0,
-                        prefix + "Free item budget is incorrect.");
                     Require(index < 10 || level.moves - level.par == (index < 20 ? 2 : index < 30 ? 1 : 0),
                         prefix + "Rebalanced move allowance is incorrect.");
                     var occupied = new HashSet<Vector2>();
@@ -55,8 +52,7 @@ namespace HueRelay.Editor
                     if (previous != null)
                     {
                         Require(level.a.Length >= previous.a.Length && level.difficulty > previous.difficulty, prefix + "Difficulty must increase.");
-                        Require(level.hints <= previous.hints && level.erasers <= previous.erasers && level.extraMoves <= previous.extraMoves
-                            && level.moves - level.par <= previous.moves - previous.par, prefix + "Assistance increased unexpectedly.");
+                        Require(level.moves - level.par <= previous.moves - previous.par, prefix + "Assistance increased unexpectedly.");
                     }
                     var puzzle = HueEngine.Prep(level);
                     Require(level.guidedChains == (index < 3), prefix + "Only the first three levels should use chain guidance.");
@@ -127,14 +123,15 @@ namespace HueRelay.Editor
             {
                 var level = levels[index];
                 game.StartLevel(index);
-                Require(game.Limit == level.moves && game.HintsRemaining == level.hints && game.ErasersRemaining == level.erasers
-                    && game.ExtraMovesRemaining == level.extraMoves && game.IsLastCampaignLevel == (index == levels.Length - 1), "Runtime level configuration: " + level.id);
+                HuePowerUpChecks.InstallInventory(game,3,3,3);
+                Require(game.Limit == level.moves && game.IsLastCampaignLevel == (index == levels.Length - 1), "Runtime level configuration: " + level.id);
                 render.Invoke(game, null);
                 game.Hint();
-                Require(game.HintsRemaining == level.hints - (level.guidedChains ? 0 : 1) && (int)typeof(HueGame).GetField("hintId", Flags).GetValue(game) == level.solution[0], "Hint ignored authored route: " + level.id);
+                int expectedHints = level.guidedChains ? 3 : 2;
+                Require(game.HintsRemaining == expectedHints && (int)typeof(HueGame).GetField("hintId", Flags).GetValue(game) == level.solution[0], "Hint ignored authored route: " + level.id);
                 game.Retry();
-                Require(game.Mask == game.P.Full && game.Limit == level.moves && game.HintsRemaining == level.hints
-                    && game.ErasersRemaining == level.erasers && game.ExtraMovesRemaining == level.extraMoves, "Retry lost configuration: " + level.id);
+                Require(game.Mask == game.P.Full && game.Limit == level.moves && game.HintsRemaining == expectedHints
+                    && game.ErasersRemaining == 3 && game.ExtraMovesRemaining == 3, "Retry reset global inventory: " + level.id);
                 render.Invoke(game, null);
                 Require(view.levelTitle.text == "Level " + level.id, "Incorrect campaign HUD: " + level.id);
                 foreach (int selected in level.solution)

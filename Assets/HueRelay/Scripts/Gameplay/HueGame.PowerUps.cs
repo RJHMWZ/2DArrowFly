@@ -4,8 +4,8 @@ namespace HueRelay
 {
     public sealed partial class HueGame
     {
-        private int eraseUses = 3;
-        private int extraMoveUses = 1;
+        private int eraseUses => Inventory.Count(HuePowerUpKind.Eraser);
+        private int extraMoveUses => Inventory.Count(HuePowerUpKind.ExtraMoves);
         private int baseMoveLimit;
         private int erasingArrow = -1;
         private float eraseStarted;
@@ -16,11 +16,14 @@ namespace HueRelay
 
         // Lock tools as soon as moves run out or the last arrow clears, including
         // settling before Finish and the entire result-panel lifetime.
-        private bool PowerUpsReady => !IsPaused && !Over && !sheetVisible && Taps < Limit
+        private bool PowerUpsReady => !IsPaused && !refillOpen && !Over && !sheetVisible && Taps < Limit
             && Mask != 0 && !generating && tut < 0 && !UsesChainGuide && Idle;
         public bool CanHint => PowerUpsReady && !IsChoosingErase && hints > 0;
         public bool CanErase => PowerUpsReady && eraseUses > 0;
         public bool CanAddMoves => PowerUpsReady && !IsChoosingErase && extraMoveUses > 0;
+        private bool CanRequestHint => PowerUpsReady && !IsChoosingErase;
+        private bool CanRequestErase => PowerUpsReady;
+        private bool CanRequestExtraMoves => PowerUpsReady && !IsChoosingErase;
         public int HintsRemaining => hints;
         public int ErasersRemaining => eraseUses;
         public int ExtraMovesRemaining => extraMoveUses;
@@ -33,7 +36,8 @@ namespace HueRelay
                 Render();
                 return;
             }
-            if (!CanErase) return;
+            if (!CanRequestErase) return;
+            if (eraseUses == 0) { OpenPowerUpRefill(HuePowerUpKind.Eraser); return; }
             IsChoosingErase = true;
             hintId = -1;
             finishAt = -1;
@@ -44,7 +48,7 @@ namespace HueRelay
         {
             if (!IsChoosingErase || !CanErase || id < 0 || id >= P.n || (Mask & (1 << id)) == 0) return;
             IsChoosingErase = false;
-            eraseUses--;
+            if (!Inventory.TrySpend(HuePowerUpKind.Eraser)) return;
             erasingArrow = id;
             now = eraseStarted = GameTime;
             eraseDuration = Mathf.Clamp((P.arrs[id].cells.Length - 1) * .08f, .65f, 1.25f);
@@ -74,8 +78,9 @@ namespace HueRelay
 
         public void AddMoves()
         {
-            if (!CanAddMoves) return;
-            extraMoveUses--;
+            if (!CanRequestExtraMoves) return;
+            if (extraMoveUses == 0) { OpenPowerUpRefill(HuePowerUpKind.ExtraMoves); return; }
+            if (!Inventory.TrySpend(HuePowerUpKind.ExtraMoves)) return;
             Limit += 3;
             finishAt = -1;
             Pop(1.12f);

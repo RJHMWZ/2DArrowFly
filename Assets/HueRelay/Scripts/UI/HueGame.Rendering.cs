@@ -139,7 +139,7 @@ namespace HueRelay
             sceneView.SetHud(scoreText, scoreColor, scoreScale, scoreW / K, bestText, titleText,
                 chipOverride ?? movesText, Limit - Taps <= 2 ? Orange : Ink,
                 progress, tut >= 0, chipRect.width / K, P.n - HueEngine.PC(Mask), P.n, Won && Over);
-            sceneView.SetPowerUps(hints, eraseUses, extraMoveUses, CanHint, CanErase, CanAddMoves, IsChoosingErase);
+            sceneView.SetPowerUps(hints, eraseUses, extraMoveUses, CanRequestHint, CanRequestErase, CanRequestExtraMoves, IsChoosingErase);
         }
 
         /// <summary>

@@ -57,7 +57,6 @@ namespace HueRelay
             public int mask;
             public int taps;
             public int score;
-            public int hints;
             public int limit;
             public int par;
         }
@@ -108,7 +107,7 @@ namespace HueRelay
         /// </summary>
         public void StartTutorial()
         {
-            if (!enabled || !root || P == null || LevelCount == 0 || !Idle)
+            if (!enabled || !root || P == null || LevelCount == 0 || !Idle || refillOpen)
                 return;
             CancelErase();
             var sn = Over ? null : new Snapshot
@@ -117,7 +116,6 @@ namespace HueRelay
                 mask = Mask,
                 taps = Taps,
                 score = Score,
-                hints = hints,
                 limit = Limit,
                 par = par
             };
@@ -185,7 +183,6 @@ namespace HueRelay
                 Taps = sn.taps;
                 Score = sn.score;
                 ds = Score;
-                hints = sn.hints;
                 Limit = sn.limit;
                 par = sn.par;
                 built = now;
