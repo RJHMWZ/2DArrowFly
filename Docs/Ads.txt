@@ -1,0 +1,73 @@
+Combo Arrow / TikTok 广告策略
+核对日期：2026-11-23
+
+本次表格对应配置
+- 游戏名：Combo Arrow（表中暂定）。
+- Ivy TT 配置的 App ID：21008。
+- 包名：com.combo.arrows.tt，已同步到 Ivy TT 配置及 Unity Android / WebGL Application Identifier。
+- 激励视频 ID：ad7709470430622418952。
+- 插屏 ID：ad7710407114673899538。
+- 当前 Ads Enabled、Rewarded Enabled、Interstitial Enabled 均已开启；仍须确认平台广告位为 Active。
+- project.config.json 的 projectname 已同步为 Combo Arrow；源项目的 TikTok appid 仍为空。
+  表中编号已写入 Ivy 配置，不推定为 TikTok 导出标识；需要从开发者平台补充该标识后再导出。
+
+参考依据
+- 官方广告指南：https://developers.tiktok.com/docs/en/in-app-ads
+  激励视频用于玩家自愿换取游戏内奖励；插屏用于关卡之间等自然间隙。
+- 官方 Unity SDK：https://developers.tiktok.com/docs/en/tiktok-sdk-for-unity
+  完整播放回调才授权奖励；广告实例一次性使用；插屏避开广告模块启动后的前 15 秒，插屏之间至少 30 秒。
+- 官方接口/错误码：https://developers.tiktok.com/docs/en/mini-games-sdk-iaa
+  需要处理没有广告、错误、提前关闭和重复使用等情况。
+
+本项目的默认策略（产品选择，不代表官方规定的收益最优参数）
+1. 激励视频为主：提示、橡皮擦、加步道具用完后，玩家点击 Watch Ad 才展示。
+   完整播放补充当前选中的道具；数量沿用 PowerUps.asset 的 Rewarded Amount，默认 +2。
+   只增加库存，不自动使用。取消、失败、未加载、超时均不发奖。
+2. 插屏为辅：只在胜利结算中主动点击 Next Level / New Board / Endless Mode / Home 时判断。
+   失败 Retry、暂停返回 Home、教学、启动、普通主菜单按钮和棋盘操作不触发插屏。
+3. 前 3 个闯关关卡保护；本次会话至少通关 3 次且前台累计 120 秒后才可能出现首次插屏。
+4. 两次插屏关闭之间至少 90 秒；每次插屏后重新累计至少 3 次通关。
+5. 玩家主动请求激励视频后，及其关闭后各保护 120 秒不出插屏，包括取消或没有广告的情况。
+6. 每次会话最多 6 次插屏；失败尝试退避 30 秒。激励请求间隔默认 10 秒。
+7. 应用处于后台的时间不累计为前台会话时长；播放超时也按前台时间计算。恢复前台不自动补播任何广告。
+8. 使用前台空闲时预加载；关卡切换时没有已加载广告就直接继续，不等待加载，不缓存这次展示机会。
+9. 同一时刻只允许一个广告。激励奖励和关卡继续操作都按请求去重；关闭/失败回调重复或过期不会重复发奖/跳关。
+10. 预加载 20 秒无响应后释放并退避；播放阶段回调超过 180 秒前台时间仍未返回则释放、恢复操作，且不发奖。
+    播放超时的配置最小为 120 秒，避免正常长视频播放中被误判超时。
+11. 插屏关闭只统计已确认关闭的次数，调用 Show 和预加载均不当作展示成功。
+12. 展示期间暂停游戏音频；结束后恢复原状态。插屏期间冻结结算输入和游戏动画时间。
+
+配置入口
+- Assets/HueRelay/Resources/HueRelay/Data/AdPolicy.asset
+- HueGame 对象上的 HueAds 组件引用这份配置。
+- Ads Enabled：总开关，新建配置默认关闭；当前配置已按提供的广告位信息开启。
+- Rewarded Enabled / Interstitial Enabled：分别控制两种广告。
+- Rewarded Ad Unit Id / Interstitial Ad Unit Id：已填写本次表格的对应广告位 ID；平台启用状态需另行确认。
+- 频控参数均在同一份配置里；运行时仍保留官方 15 秒模块保护和 30 秒插屏间隔下限。
+- Log Decisions 可在调试时打开，查看跳过原因、预加载、请求、关闭和失败。
+- Diagnostic 事件是本地扩展点，当前不会额外向分析服务发送数据。
+- 不引入 Banner、开屏广告、失败强制广告或分数翻倍入口。
+
+后续开通步骤
+1. 在 TikTok Developer Portal 为本小游戏开通 IAA，创建并启用 Rewarded / Interstitial 广告位。
+2. 确认项目现有 Ivy/TikTok 初始化配置中的 App ID 和小游戏一致，SDK 初始化成功。
+3. 广告位 ID 和总开关已配置；核对广告位归属和 Active 状态后再进行实际测试。
+   若只先上激励视频，请取消 Interstitial Enabled。
+4. 此策略直接复用 TTSDK 的 Load / IsLoaded / Show 和关闭、错误回调。
+   使用 SDK 的 CanIUse 同时检查创建、加载、就绪查询和展示；客户端能力不足时不请求广告，保留正常游玩。
+   HueRelay 的广告位填写在 AdPolicy.asset；旧 Ivy AdConfig 不是这套策略的广告位来源。
+5. Unity 导出后运行 ttmg dev，通过 IAA Mock 分别测试完整播放、提前关闭、加载/展示失败。
+6. 关闭 Mock，用有测试权限的目标地区账号和目标客户端测试真实广告。
+   验证后台恢复、断网、过关快速连点、没有广告、奖励保存和频控；配置为空/不支持时仍须正常游戏。
+7. 根据真实填充率、激励点击/完成率、插屏频次和关卡流失再调整参数；本配置不承诺收益或留存效果。
+
+编辑器检查
+- Tools/Hue Relay/Ads/Check pacing rules：纯策略检查，不请求广告。
+- Play 模式下 Tools/Hue Relay/Ads/Check runtime integration：使用可控后端及临时道具存档。
+- 报告保存于 Logs/Ads；检查完成后恢复玩家库存与教学标记。
+- 新增广告后端已用项目 ttsdk.dll 和 IVY_SDK_TT / UNITY_WEBGL 宏独立编译核对。
+- 当前编辑器目标是 StandaloneWindows64。直接跨目标编译 WebGL 时，已有 IvySdk.MiniGame.UserInfo
+  的 access_token / refresh_token 条件字段触发编辑器与 Player 序列化差异；此次不将整包导出标为通过。
+  正式导出前先切换到 WebGL 构建目标，待编辑器重新编译后再进行完整导出与真机验收。
+- 广告总开关关闭时保留原有 Editor 道具广告模拟开关；该模拟只在 Unity Editor 生效。
+  打开总开关后 Editor 本身不冒充真实 TikTok 广告，自动化检查通过显式注入模拟后端验证。

@@ -400,8 +400,14 @@ namespace HueRelay
         /// <summary>胜负面板的 Home 入口，清理本局动画后返回主菜单。</summary>
         public void ReturnHome()
         {
+            if (adBreakActive) return;
             if (mainMenu && mainMenu.IsPauseSettingsOpen) return;
             if ((!sheetVisible && !IsPaused) || generating) return;
+            NavigateAfterResultAd(ReturnHomeNow);
+        }
+
+        private void ReturnHomeNow()
+        {
             if (!mainMenu) mainMenu = FindObjectOfType<HueMainMenu>();
             if (!mainMenu || !mainMenu.ResolveBindings()) return;
             ResumePause();
@@ -498,6 +504,7 @@ namespace HueRelay
         /// </summary>
         public void ResetGame()
         {
+            CancelAdNavigation();
             if (mainMenu && mainMenu.IsPauseSettingsOpen) mainMenu.CloseSettings();
             DismissPowerUpRefill(false);
             ResumePause();
@@ -733,22 +740,27 @@ namespace HueRelay
         /// <summary>场景中重试按钮的持久化事件入口。</summary>
         public void Retry()
         {
-            if (enabled && root && P != null && LevelCount > 0 && !generating && tut < 0)
+            if (enabled && root && P != null && LevelCount > 0 && !generating && tut < 0 && !adBreakActive)
                 ResetGame();
         }
 
         /// <summary>场景中帮助按钮的持久化事件入口。</summary>
         public void OpenHelp()
         {
-            if (enabled && root && P != null && LevelCount > 0 && !generating && tut < 0)
+            if (enabled && root && P != null && LevelCount > 0 && !generating && tut < 0 && !adBreakActive)
                 StartTutorial();
         }
 
         /// <summary>结算主按钮入口；面板关闭后忽略同一帧重复点击。</summary>
         public void ContinueResult()
         {
-            if (generating || !sheetVisible)
+            if (generating || !sheetVisible || adBreakActive)
                 return;
+            NavigateAfterResultAd(ContinueResultNow);
+        }
+
+        private void ContinueResultNow()
+        {
             if (!Won)
                 ResetGame();
             else if (Endless)
@@ -778,7 +790,7 @@ namespace HueRelay
         /// <param name="p">相对于整个界面的逻辑像素点击位置。</param>
         private void Pointer(Vector2 p)
         {
-            if (IsPaused || refillOpen || Time.frameCount == resumedFrame || Time.frameCount == tutorialAdvancedFrame || generating)
+            if (adBreakActive || IsPaused || refillOpen || Time.frameCount == resumedFrame || Time.frameCount == tutorialAdvancedFrame || generating)
                 return;
             if (tut >= 3)
             {
@@ -841,6 +853,7 @@ namespace HueRelay
 
             // Commit before celebrations or navigation, including an immediate app exit.
             if (!Endless && tut < 0) campaignProgress?.Complete(LevelIndex);
+            if (tut < 0) Ads?.RecordWin();
 
             punchAt = now;
             chipOverride = "Left " + remaining;
@@ -905,6 +918,7 @@ namespace HueRelay
         /// </summary>
         private void Update()
         {
+            if (adBreakActive) return;
             if (mainMenu && mainMenu.IsVisible) return;
             if (Input.GetKeyDown(KeyCode.Escape))
             {

@@ -42,12 +42,12 @@ MonoBehaviour:
     rewardedAds: []
   tt:
     enable: 1
-    appName: hahah
-    appId: 2828
+    appName: Combo Arrow
+    appId: 21008
     channel: TT
     versionCode: 1
     versionName: 1.0.0
-    packageName: com.haha
+    packageName: com.combo.arrows.tt
     debug: 1
     miMasterAppId: 
     gravityAccessToken: plne40MfszQiblyxrwjkuP3KvitdByhf

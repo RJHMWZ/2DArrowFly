@@ -86,6 +86,11 @@ namespace HueRelay.Editor
             if (enabledScenes.Length != 1 || enabledScenes[0].path != ScenePath)
                 errors.Add("Build Settings 只应启用 HueRelay 场景。");
             var powerUps = Resources.Load<HuePowerUpConfig>("HueRelay/Data/PowerUps");
+            var ads = UnityEngine.Object.FindObjectOfType<HueAds>(true);
+            if (!ads || !ads.game || !ads.policy) errors.Add("Ad strategy component/configuration is missing.");
+            else if (ads.policy.adsEnabled && (ads.policy.rewardedEnabled && !ads.policy.RewardedConfigured
+                || ads.policy.interstitialEnabled && !ads.policy.InterstitialConfigured))
+                errors.Add("Enabled ad formats need non-empty TikTok placement IDs.");
             if (!powerUps || powerUps.initialHints < 0 || powerUps.initialErasers < 0
                 || powerUps.initialExtraMoves < 0 || powerUps.rewardedAmount < 1)
                 errors.Add("Global PowerUps configuration is missing or invalid.");
