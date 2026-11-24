@@ -14,7 +14,7 @@ MonoBehaviour:
   m_EditorClassIdentifier: 
   tag: 0
   wasmResourceUrl: 
-  OutputDir: D:\workspace\2DArrowFly\tt-minigame\Before
+  OutputDir: D:\workspace\2DArrowFly\tt-minigame\ComboArrow
   useByteAudioAPI: 0
   wasmMemorySize: 128
   isWebGL2: 0
@@ -52,10 +52,10 @@ MonoBehaviour:
   NativeWhiteListRegex:
   - com.bytedance.starksdk
   - _Backup~
-  _appId: ArrowTest
+  _appId: 7709386656452790280
   version: 
   autoVersion: 0
-  _webglPackagePath: D:\workspace\2DArrowFly\tt-minigame\Before\tt-minigame
+  _webglPackagePath: D:\workspace\2DArrowFly\tt-minigame\ComboArrow\tt-minigame
   _orientation: 0
   _iOSPerformancePlus: 1
   _menuButtonStyle: 0
