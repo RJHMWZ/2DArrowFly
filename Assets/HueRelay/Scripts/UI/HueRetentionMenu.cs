@@ -20,6 +20,7 @@ namespace HueRelay
         public RectTransform profilePreview, minisPreview, rewardGroup;
         public Image rewardIcon;
         private HueRetentionKind selected;
+        private readonly HuePanelEntrance entrance = new HuePanelEntrance();
         public bool IsOpen => overlay && overlay.activeSelf;
 
         private void OnEnable()
@@ -34,7 +35,7 @@ namespace HueRelay
             retention.Changed += Refresh;
             Refresh();
         }
-        private void OnDisable() { Unbind(); }
+        private void OnDisable() { entrance.Reset(); Unbind(); }
         private void Unbind()
         {
             if (profileButton) profileButton.onClick.RemoveListener(OpenProfile);
@@ -50,6 +51,8 @@ namespace HueRelay
         private void Open(HueRetentionKind kind)
         {
             if (Application.isPlaying && (!menu || !menu.IsVisible)) return;
+            if (IsOpen && selected == kind) return;
+            entrance.Reset();
             menu.CloseSettings();
             selected = kind;
             overlay.SetActive(true);
@@ -57,12 +60,14 @@ namespace HueRelay
             if (Application.isPlaying) retention.Refresh();
             Refresh();
             menu.Layout(Screen.width, Screen.height, Screen.safeArea);
+            if (Application.isPlaying) entrance.Begin(card, overlay.GetComponent<Image>(), Time.unscaledTime);
             if (Application.isPlaying && EventSystem.current)
                 EventSystem.current.SetSelectedGameObject(closeButton.gameObject);
         }
 
         public void Close()
         {
+            entrance.Reset();
             if (overlay) overlay.SetActive(false);
             if (Application.isPlaying && menu && menu.IsVisible && EventSystem.current)
                 EventSystem.current.SetSelectedGameObject((selected == HueRetentionKind.Profile ? profileButton : shortcutButton).gameObject);
@@ -164,7 +169,10 @@ namespace HueRelay
             StyleEntry(shortcutButton, size, gear, 1);
             float cardHeight = selected == HueRetentionKind.Profile ? 596 : 392;
             Place(card, center, top + usable * .5f, 326, cardHeight);
-            card.localScale = Vector3.one * Mathf.Max(.1f, Mathf.Min(1, Mathf.Min((contentWidth - 32) / 326, (usable - 24) / cardHeight)));
+            float cardScale = Mathf.Max(.1f, Mathf.Min(1, Mathf.Min((contentWidth - 32) / 326, (usable - 24) / cardHeight)));
+            if (Application.isPlaying && entrance.IsActive)
+                entrance.SetLayout(card.anchoredPosition, cardScale, Time.unscaledTime);
+            else card.localScale = Vector3.one * cardScale;
         }
 
         private static void StyleEntry(Button button, Vector2 size, HueSettingsIcon gear, float side)
@@ -198,6 +206,7 @@ namespace HueRelay
         private void Update()
         {
             if (Application.isPlaying && IsOpen && Input.GetKeyDown(KeyCode.Escape)) Close();
+            if (Application.isPlaying && IsOpen && entrance.IsAnimating) entrance.Apply(Time.unscaledTime);
         }
     }
 }

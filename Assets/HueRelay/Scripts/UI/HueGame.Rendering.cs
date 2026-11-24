@@ -573,6 +573,8 @@ namespace HueRelay
         {
             if (!sheetVisible)
             {
+                if (sceneView.resultBackdrop.gameObject.activeSelf)
+                    HueModalBackdrop.Hide(sceneView.resultBackdrop);
                 if (sceneView.resultGroup.gameObject.activeSelf)
                     sceneView.resultGroup.gameObject.SetActive(false);
                 if (sceneView.resultBackdrop.gameObject.activeSelf)
@@ -589,7 +591,7 @@ namespace HueRelay
                 resultSecondary = "Home";
             }
 
-            float p = 1 - Mathf.Pow(1 - Mathf.Clamp01((now - modalAt) / .42f), 3);
+            float p = HuePanelEntrance.Evaluate(now - modalAt);
             sceneView.SetResult(Won, record, K, p, resultTitle, resultScore,
                 resultDetail, resultMain, resultSecondary, revivePending, reviveUnavailable);
         }

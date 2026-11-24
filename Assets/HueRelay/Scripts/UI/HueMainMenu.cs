@@ -37,6 +37,7 @@ namespace HueRelay
         private Rect automaticSafeArea;
         private bool automaticLayoutValid, automaticSettingsOpen;
         private HueRetentionMenu retentionMenu;
+        private readonly HuePanelEntrance settingsEntrance = new HuePanelEntrance();
         private HueRetentionMenu RetentionMenu => retentionMenu ? retentionMenu : (retentionMenu = GetComponent<HueRetentionMenu>());
         public bool IsPauseSettingsOpen => settingsFromPause;
         public bool IsVisible => menuCanvas && menuCanvas.enabled && !settingsFromPause;
@@ -178,10 +179,12 @@ namespace HueRelay
 
         public void OpenSettings()
         {
-            if (!IsVisible || !settingsOverlay) return;
+            if (!IsVisible || !settingsOverlay || settingsOverlay.activeSelf) return;
             if (RetentionMenu) RetentionMenu.Close();
             settingsOverlay.transform.SetAsLastSibling();
             settingsOverlay.SetActive(true); RefreshSettings();
+            Layout(Screen.width, Screen.height, Screen.safeArea);
+            settingsEntrance.Begin(settingsCard, settingsOverlay.GetComponent<Image>(), Time.unscaledTime);
         }
 
         public void OpenSettingsFromPause()
@@ -210,18 +213,25 @@ namespace HueRelay
             settingsOverlay.SetActive(true);
             RefreshSettings();
             Layout(Screen.width, Screen.height, Screen.safeArea);
+            settingsEntrance.Begin(settingsCard, settingsOverlay.GetComponent<Image>(), Time.unscaledTime);
             if (EventSystem.current) EventSystem.current.SetSelectedGameObject(closeButton.gameObject);
         }
 
         public void CloseSettings()
         {
+            settingsEntrance.Reset();
             if (settingsOverlay) settingsOverlay.SetActive(false);
             if (!settingsFromPause) return;
             settingsFromPause = false;
             if (menuCanvas) SetCanvas(menuCanvas, false);
             foreach (var child in hiddenForPauseSettings) if (child) child.SetActive(true);
             hiddenForPauseSettings.Clear();
-            if (hiddenPauseCard) hiddenPauseCard.gameObject.SetActive(true);
+            if (hiddenPauseCard)
+            {
+                hiddenPauseCard.gameObject.SetActive(true);
+                var pausedPanel = hiddenPauseCard.GetComponentInParent<HuePauseMenu>();
+                if (pausedPanel && game && game.IsPaused) pausedPanel.ReplayEntrance();
+            }
             hiddenPauseCard = null;
             if (view && view.canvas)
             {
@@ -285,6 +295,8 @@ namespace HueRelay
             }
             if (Application.isPlaying && Input.GetKeyDown(KeyCode.Escape) && IsVisible && settingsOverlay.activeSelf)
                 CloseSettings();
+            if (Application.isPlaying && settingsOverlay.activeSelf && settingsEntrance.IsAnimating)
+                settingsEntrance.Apply(Time.unscaledTime);
         }
 
         public void Layout(float width, float height, Rect safeArea)
@@ -329,7 +341,10 @@ namespace HueRelay
             RepairDescendants(settings);
             if (settingsLabel && settingsLabel.gameObject.activeSelf) settingsLabel.gameObject.SetActive(false);
             Place(settingsCard, center, top + usable * .5f, 326, 292);
-            settingsCard.localScale = Vector3.one * Mathf.Max(.1f, Mathf.Min(1, Mathf.Min((contentWidth - 32) / 326, (usable - 24) / 292)));
+            float cardScale = Mathf.Max(.1f, Mathf.Min(1, Mathf.Min((contentWidth - 32) / 326, (usable - 24) / 292)));
+            if (Application.isPlaying && settingsEntrance.IsActive)
+                settingsEntrance.SetLayout(settingsCard.anchoredPosition, cardScale, Time.unscaledTime);
+            else settingsCard.localScale = Vector3.one * cardScale;
             if (RetentionMenu) RetentionMenu.Layout(w, h, top, bottom, left, right);
         }
 

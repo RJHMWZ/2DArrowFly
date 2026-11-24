@@ -18,6 +18,7 @@ namespace HueRelay
         private Font font;
         private float nextRefresh;
         private string message;
+        private readonly HuePanelEntrance entrance = new HuePanelEntrance();
 
         public bool IsOpen => overlay && overlay.activeSelf;
 
@@ -64,7 +65,7 @@ namespace HueRelay
 
             overlay = Node("DebugOverlay", transform).gameObject;
             Stretch((RectTransform)overlay.transform);
-            overlay.AddComponent<Image>().color = new Color(.08f, .1f, .2f, .55f);
+            overlay.AddComponent<Image>().color = HueModalBackdrop.Tint;
             card = Node("DebugCard", overlay.transform);
             card.anchorMin = card.anchorMax = card.pivot = new Vector2(.5f, .5f);
             card.sizeDelta = new Vector2(326, 400);
@@ -97,16 +98,18 @@ namespace HueRelay
 
         public void Open()
         {
-            if (!game || !game.DebugCanEdit) return;
+            if (!game || !game.DebugCanEdit || IsOpen) return;
             game.DebugSetPanelOpen(true);
             message = null;
             level.text = (game.LevelIndex + 1).ToString();
             overlay.SetActive(true); entry.gameObject.SetActive(false);
             Refresh(); Layout();
+            entrance.Begin(card, overlay.GetComponent<Image>(), Time.unscaledTime);
         }
 
         public void Close()
         {
+            entrance.Reset();
             if (game) game.DebugSetPanelOpen(false);
             if (overlay) overlay.SetActive(false);
             if (entry) entry.gameObject.SetActive(true);
@@ -140,6 +143,7 @@ namespace HueRelay
             if (IsOpen) Refresh();
         }
 
+
         private void Refresh()
         {
             bool ready = game && game.DebugCanEdit;
@@ -154,7 +158,8 @@ namespace HueRelay
             if (!canvasRect || !card) return;
             Vector2 size = canvasRect.rect.size;
             float scale = Mathf.Max(.1f, Mathf.Min(1, Mathf.Min((size.x - 24) / 326, (size.y - 24) / 400)));
-            if (card.localScale.x != scale) card.localScale = Vector3.one * scale;
+            if (entrance.IsActive) entrance.SetLayout(entrance.RestPosition, scale, Time.unscaledTime);
+            else if (card.localScale.x != scale) card.localScale = Vector3.one * scale;
             var rect = (RectTransform)entry.transform;
             Rect safe = Screen.safeArea;
             float x = Screen.width > 0 ? safe.xMin / Screen.width * size.x : 0;
@@ -215,7 +220,11 @@ namespace HueRelay
             rect.offsetMin = rect.offsetMax = Vector2.zero;
         }
 
-        private void OnDisable() { if (game && game.IsRuntimeDebugOpen) game.DebugSetPanelOpen(false); }
+        private void OnDisable()
+        {
+            entrance.Reset();
+            if (game && game.IsRuntimeDebugOpen) game.DebugSetPanelOpen(false);
+        }
     }
 }
 #endif

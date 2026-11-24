@@ -58,7 +58,7 @@ namespace HueRelay.Editor
             font = ui.menu.levelLabel.font;
             surface = AssetDatabase.GetBuiltinExtraResource<Sprite>("UI/Skin/UISprite.psd");
             var ink = HueGame.Hex("50587f");
-            var overlay = Image("RetentionOverlay", ui.menu.transform, new Color(0, 0, 0, .70f), false);
+            var overlay = Image("RetentionOverlay", ui.menu.transform, HueModalBackdrop.Tint, false);
             Stretch(overlay.rectTransform); overlay.raycastTarget = true;
             ui.overlay = overlay.gameObject;
             ui.laterButton = overlay.gameObject.AddComponent<Button>();

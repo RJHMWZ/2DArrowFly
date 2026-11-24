@@ -10,6 +10,7 @@ namespace HueRelay
         public Text levelLabel;
         public Button continueButton, retryButton, settingsButton, homeButton;
         private HueGame game;
+        private readonly HuePanelEntrance entrance = new HuePanelEntrance();
 
         public bool ResolveBindings()
         {
@@ -48,15 +49,19 @@ namespace HueRelay
 
         public void Show(HueGame owner)
         {
+            if (entrance.IsActive && gameObject.activeSelf && card && card.gameObject.activeSelf) return;
             if (!ResolveBindings()) return;
+            entrance.Reset();
             game = owner;
             Bind(continueButton, game.ResumePause);
             Bind(retryButton, game.RetryFromPause);
             Bind(settingsButton, game.OpenSettingsFromPause);
             Bind(homeButton, game.ReturnHome);
             gameObject.SetActive(true);
+            card.gameObject.SetActive(true);
             transform.SetAsLastSibling();
             Layout();
+            entrance.Begin(card, GetComponent<Image>(), Time.unscaledTime);
         }
 
         private static void Bind(Button button, UnityEngine.Events.UnityAction action)
@@ -65,7 +70,13 @@ namespace HueRelay
             button.onClick.AddListener(action);
         }
 
-        public void Hide() { gameObject.SetActive(false); }
+        public void Hide() { entrance.Reset(); gameObject.SetActive(false); }
+        private void OnDisable() { entrance.Reset(); }
+        public void ReplayEntrance()
+        {
+            entrance.Begin(card, GetComponent<Image>(), Time.unscaledTime);
+            Layout();
+        }
         private void Update() { Layout(); }
         public void Layout()
         {
@@ -73,7 +84,8 @@ namespace HueRelay
             var parent = transform as RectTransform;
             float scale = Mathf.Max(.1f, Mathf.Min(1, Mathf.Min((parent.rect.width - 32) / 326,
                 (parent.rect.height - 32) / 322)));
-            card.localScale = Vector3.one * scale;
+            if (entrance.IsActive) entrance.SetLayout(entrance.RestPosition, scale, Time.unscaledTime);
+            else card.localScale = Vector3.one * scale;
         }
     }
 }

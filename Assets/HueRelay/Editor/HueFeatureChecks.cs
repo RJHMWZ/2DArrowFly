@@ -47,6 +47,7 @@ namespace HueRelay.Editor
             HueAdChecks.PolicyChecks();
             HueAdChecks.RuntimeChecks();
             HueUndoChecks.Run();
+            HuePanelEntranceChecks.Run();
             MoveCountFeedbackChecks();
             var game = UnityEngine.Object.FindObjectOfType<HueGame>();
             var view = UnityEngine.Object.FindObjectOfType<HueView>();

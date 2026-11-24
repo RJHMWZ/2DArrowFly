@@ -20,7 +20,7 @@ namespace HueRelay.Editor
             root.anchorMin = Vector2.zero; root.anchorMax = Vector2.one;
             root.offsetMin = root.offsetMax = Vector2.zero;
             var backdrop = root.gameObject.AddComponent<Image>();
-            backdrop.color = new Color(.11f,.13f,.25f,.35f); backdrop.raycastTarget = true;
+            backdrop.color = HueModalBackdrop.Tint; backdrop.raycastTarget = true;
             var panel = root.gameObject.AddComponent<HuePowerUpRefillPanel>();
             panel.card = Node("RefillCard", root);
             panel.card.anchorMin = panel.card.anchorMax = panel.card.pivot = new Vector2(.5f,.5f);

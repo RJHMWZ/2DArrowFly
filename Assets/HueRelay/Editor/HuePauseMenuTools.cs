@@ -50,7 +50,7 @@ namespace HueRelay.Editor
             overlay.anchorMin = Vector2.zero; overlay.anchorMax = Vector2.one;
             overlay.offsetMin = overlay.offsetMax = Vector2.zero;
             var backdrop = overlay.gameObject.AddComponent<Image>();
-            backdrop.color = new Color(.94f,.96f,1,.65f); backdrop.raycastTarget = true;
+            backdrop.color = HueModalBackdrop.Tint; backdrop.raycastTarget = true;
             var pause = overlay.gameObject.AddComponent<HuePauseMenu>();
             pause.card = Node("PauseCard",overlay);
             pause.card.anchorMin = pause.card.anchorMax = pause.card.pivot = new Vector2(.5f,.5f);

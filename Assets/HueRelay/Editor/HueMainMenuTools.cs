@@ -60,7 +60,7 @@ namespace HueRelay.Editor
             Box(gear.rectTransform, 0, 0, 28, 28);
             menu.settingsLabel = Text("SettingsLabel", root, "Settings", 14, HueGame.Mute, 0, 0, 120, 24);
 
-            var overlay = Image("SettingsOverlay", root, new Color(.11f, .13f, .25f, .22f), false);
+            var overlay = Image("SettingsOverlay", root, HueModalBackdrop.Tint, false);
             Stretch(overlay.rectTransform); overlay.raycastTarget = true;
             menu.settingsOverlay = overlay.gameObject;
             var card = Image("SettingsCard", overlay.transform, Color.white);

@@ -752,8 +752,7 @@ namespace HueRelay
             resultGroup.alpha = Mathf.Clamp01(easing);
             resultGroup.interactable = easing > .9f;
             // Darken the scene behind either result while keeping the card and its input clear.
-            resultBackdrop.material = null;
-            resultBackdrop.color = new Color(.08f, .09f, .12f, .55f * easing);
+            HueModalBackdrop.Apply(resultBackdrop, easing);
             float width = Mathf.Min(340, stage.rect.width / scale - 16);
             float detailWidth = width - 48;
             resultDetail.fontSize = 13;
@@ -774,9 +773,8 @@ namespace HueRelay
             float height = (win ? 370 : showRevive ? 380 : 308) + detailHeight;
             card.sizeDelta = new Vector2(width, height);
             card.anchorMin = card.anchorMax = card.pivot = new Vector2(.5f, .5f);
-            card.anchoredPosition = new Vector2(0, -(1 - easing) * 18 * scale);
-            card.localScale = Vector3.one * scale * Mathf.Min(1, Mathf.Max(.1f, stage.rect.height / scale - 24) / height)
-                * Mathf.Lerp(.97f, 1, easing);
+            float fittedScale = scale * Mathf.Min(1, Mathf.Max(.1f, stage.rect.height / scale - 24) / height);
+            HuePanelEntrance.Pose(card, Vector2.zero, fittedScale, easing);
             resultTitle.text = title;
             resultScore.text = number;
             resultDetail.text = detail;
@@ -902,6 +900,7 @@ namespace HueRelay
         /// <summary>重置时立即隐藏旧面板，避免等下一帧才清除上一局的可见状态。</summary>
         public void HideTransient()
         {
+            HueModalBackdrop.Hide(resultBackdrop);
             SetActive(resultBackdrop.gameObject, false);
             SetActive(resultGroup.gameObject, false);
             SetActive(tutorialGroup.gameObject, false);
