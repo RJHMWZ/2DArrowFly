@@ -1,7 +1,7 @@
 全局道具库存与广告补充
 
 配置：Assets/HueRelay/Resources/HueRelay/Data/PowerUps.asset
-initialHints / initialErasers / initialExtraMoves：首次建立本地库存时赠送数量，默认均为 3。
+initialHints / initialErasers / initialExtraMoves：首次建立本地库存时赠送数量，默认均为 1。
 rewardedAmount：一次完整观看广告后的奖励数量，默认 2；只补充此次点击的道具。
 调整初始赠送数量不会重置已经存在的存档。
 

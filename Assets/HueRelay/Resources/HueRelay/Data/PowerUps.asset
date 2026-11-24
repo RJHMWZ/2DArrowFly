@@ -12,8 +12,8 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: edbb4f60a0314355ab4e371575656f19, type: 3}
   m_Name: PowerUps
   m_EditorClassIdentifier: 
-  initialHints: 3
-  initialErasers: 3
-  initialExtraMoves: 3
+  initialHints: 1
+  initialErasers: 1
+  initialExtraMoves: 1
   rewardedAmount: 2
   simulateAdsInEditor: 1

@@ -38,21 +38,21 @@ namespace HueRelay.Editor
             {
                 PlayerPrefs.DeleteKey(TestKey);
                 var fresh = new HuePowerUpInventory(game.PowerUpSettings,TestKey);
-                Require(fresh.Count(HuePowerUpKind.Hint)==3 && fresh.Count(HuePowerUpKind.Eraser)==3
-                    && fresh.Count(HuePowerUpKind.ExtraMoves)==3,"First launch must grant three of each tool.");
+                Require(fresh.Count(HuePowerUpKind.Hint)==1 && fresh.Count(HuePowerUpKind.Eraser)==1
+                    && fresh.Count(HuePowerUpKind.ExtraMoves)==1,"First launch must grant one of each tool.");
                 typeof(HueGame).GetField("inventory",Flags).SetValue(game,fresh);
                 game.StartLevel(3); game.Hint();
-                Require(game.HintsRemaining==2,"Hint did not spend global inventory.");
+                Require(game.HintsRemaining==0,"Hint did not spend global inventory.");
                 game.Retry(); game.StartLevel(10);
-                Require(game.HintsRemaining==2,"Retry/next level replenished inventory.");
+                Require(game.HintsRemaining==0,"Retry/next level replenished inventory.");
                 game.StartTutorial(); game.Hint(); game.AddMoves(); game.ToggleErase(); game.EndTutorial();
-                Require(game.HintsRemaining==2 && game.ErasersRemaining==3 && game.ExtraMovesRemaining==3,
+                Require(game.HintsRemaining==0 && game.ErasersRemaining==1 && game.ExtraMovesRemaining==1,
                     "Tutorial consumed/restored global inventory incorrectly.");
                 game.OpenPause(); view.canvas.GetComponentInChildren<HuePauseMenu>(true).homeButton.onClick.Invoke();
                 var menu=UnityEngine.Object.FindObjectOfType<HueMainMenu>(); menu.levelButton.onClick.Invoke(); game.EndTutorial();
-                Require(game.HintsRemaining==2,"Home/menu re-entry reset inventory.");
+                Require(game.HintsRemaining==0,"Home/menu re-entry reset inventory.");
                 var reloaded=new HuePowerUpInventory(game.PowerUpSettings,TestKey);
-                Require(reloaded.Count(HuePowerUpKind.Hint)==2,"Inventory failed persistence/reconstruction.");
+                Require(reloaded.Count(HuePowerUpKind.Hint)==0,"Inventory failed persistence/reconstruction.");
                 InstallInventory(game,0,0,0); game.StartLevel(3); Draw(game);
                 Require(view.hintButton.interactable && view.eraseButton.interactable && view.extraMovesButton.interactable,
                     "Empty tools must remain clickable during active gameplay.");
@@ -128,7 +128,7 @@ namespace HueRelay.Editor
             finally { configField.SetValue(game,original); UnityEngine.Object.DestroyImmediate(config); }
             InstallInventory(game,3,3,3); game.StartLevel(0);
             Directory.CreateDirectory("Logs/PowerUps");
-            File.WriteAllText("Logs/PowerUps/checks.txt","PASS: first-launch 3/3/3; no reset on retry/level/menu/tutorial/reload; all three empty icons clickable; modal blocks input and clock; correct icon/+2; pending request deduplication; failed/cancelled/duplicate/late callbacks grant nothing; completion pays selected item exactly once and persists; no auto-use; missing adapter safe; Editor simulation; config edits do not repeat gifts.\n");
+            File.WriteAllText("Logs/PowerUps/checks.txt","PASS: first-launch 1/1/1; no reset on retry/level/menu/tutorial/reload; all three empty icons clickable; modal blocks input and clock; correct icon/+2; pending request deduplication; failed/cancelled/duplicate/late callbacks grant nothing; completion pays selected item exactly once and persists; no auto-use; missing adapter safe; Editor simulation; config edits do not repeat gifts.\n");
             phase=2; return true;
         }
     }
