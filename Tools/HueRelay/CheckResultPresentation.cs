@@ -80,6 +80,29 @@ public static class HueResultPresentationChecks
                         && view.resultSecondary.targetGraphic == retryBackground,
                         "Retry must have an enabled neutral background across its button area.");
                     var primaryBackground = view.resultPrimary.GetComponent<Image>();
+                    Require(view.resultRevive && view.resultRevive.gameObject.activeSelf == !win,
+                        "Revive must be offered only on failure.");
+                    if (!win)
+                    {
+                        var reviveBackground = view.resultRevive.GetComponent<Image>();
+                        Require(primaryBackground.color == retryBackground.color
+                            && view.resultPrimaryText.color == view.resultSecondaryText.color,
+                            "Failure Retry must use the Home styling.");
+                        Require(!view.resultDetail.gameObject.activeSelf, "Failure description must be hidden.");
+                        Require(view.resultReviveText.text == "+3 Moves" && view.resultReviveIcon
+                            && view.resultReviveIcon.gameObject.activeSelf && !view.resultReviveIcon.raycastTarget,
+                            "Revive must use a video-ad icon and the compact +3 Moves label.");
+                        Require(reviveBackground.color.b - reviveBackground.color.r > .2f
+                            && reviveBackground.rectTransform.rect.height > primaryBackground.rectTransform.rect.height,
+                            "Revive must be the prominent blue action.");
+                        var card = (RectTransform)view.resultGroup.transform;
+                        foreach (var button in new[] { view.resultRevive, view.resultPrimary, view.resultSecondary })
+                        {
+                            var corners = new Vector3[4]; ((RectTransform)button.transform).GetWorldCorners(corners);
+                            foreach (var corner in corners)
+                                Require(card.rect.Contains((Vector2)card.InverseTransformPoint(corner)), "A result button escaped the card.");
+                        }
+                    }
                     Require(retryBackground.sprite == primaryBackground.sprite
                         && retryBackground.type == primaryBackground.type
                         && retryBackground.pixelsPerUnitMultiplier == primaryBackground.pixelsPerUnitMultiplier
@@ -97,7 +120,7 @@ public static class HueResultPresentationChecks
                     Require(view.resultPrimary.IsInteractable(),"Settled primary button must accept input.");
                     Require(view.resultSecondary.gameObject.activeSelf,"Home must be visible for both results.");
                     var detailRect = view.resultDetail.rectTransform;
-                    Require(-detailRect.anchoredPosition.y + detailRect.rect.height <= -view.resultButtons.anchoredPosition.y,"Detail overlaps buttons.");
+                    Require(!win || -detailRect.anchoredPosition.y + detailRect.rect.height <= -view.resultButtons.anchoredPosition.y,"Detail overlaps buttons.");
                     Require(view.progressFill.anchorMax.x>=0 && view.progressFill.anchorMax.x<=1,"Fill escaped track.");
                     camera.Render();
                     var previous = RenderTexture.active; RenderTexture.active = rt;

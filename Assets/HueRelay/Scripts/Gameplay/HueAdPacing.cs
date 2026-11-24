@@ -36,6 +36,7 @@ namespace HueRelay
             if (!policy.InterstitialConfigured) return "disabled_or_missing_placement";
             if (busy) return "another_ad_active";
             if (!context.beforeResult || context.tutorialActive) return "not_a_result_boundary";
+            if (!context.won) return "not_a_win";
             if (!context.endless && context.levelNumber <= Math.Max(0, policy.protectedCampaignLevels)) return "protected_level";
             if (now < policy.FirstInterstitialDelay) return "session_warmup";
             if (now - moduleStarted < 15) return "sdk_module_warmup";

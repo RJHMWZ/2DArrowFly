@@ -46,6 +46,7 @@ namespace HueRelay.Editor
             if (!Application.isPlaying) throw new InvalidOperationException("Run in Play mode.");
             HueAdChecks.PolicyChecks();
             HueAdChecks.RuntimeChecks();
+            MoveCountFeedbackChecks();
             var game = UnityEngine.Object.FindObjectOfType<HueGame>();
             var view = UnityEngine.Object.FindObjectOfType<HueView>();
             Require(game.PowerUpSettings.initialHints == 0 && game.PowerUpSettings.initialErasers == 0
@@ -86,8 +87,49 @@ namespace HueRelay.Editor
             Require(!(bool)guide.GetValue(game), "Unavailable gameplay accumulated idle time.");
             AnalyticsChecks();
             Directory.CreateDirectory("Logs/Features");
-            File.WriteAllText("Logs/Features/checks.txt", "PASS: ad pacing and runtime integration; one-item rewards; win/failure ads before result; navigation has no ads; idle guide threshold/input restoration; analytics attempts, first action, result deduplication, background deduplication, retry/abandon, checkpoint recovery.\n");
+            File.WriteAllText("Logs/Features/checks.txt", "PASS: ad pacing and runtime integration; one-item rewards; step-by-step move feedback; win-only interstitials before result; no automatic failure/navigation ads; rewarded revive and victory delay; idle guide threshold/input restoration; analytics attempts, first action, result deduplication, background deduplication, retry/abandon, checkpoint recovery.\n");
         }
+        private static void MoveCountFeedbackChecks()
+        {
+            var game = UnityEngine.Object.FindObjectOfType<HueGame>();
+            var view = UnityEngine.Object.FindObjectOfType<HueView>();
+            var inventory = typeof(HueGame).GetField("inventory", Private);
+            var original = inventory.GetValue(game);
+            const string key = "cc_move_count_feedback_checks";
+            bool had = PlayerPrefs.HasKey(key); string saved = PlayerPrefs.GetString(key, "");
+            var now = typeof(HueGame).GetField("now", Private);
+            var render = typeof(HueGame).GetMethod("Render", Private);
+            try
+            {
+                PlayerPrefs.SetString(key, "{\"version\":1,\"hints\":0,\"erasers\":0,\"extraMoves\":3}");
+                inventory.SetValue(game, new HuePowerUpInventory(game.PowerUpSettings, key));
+                game.StartLevel(3);
+                float start = (float)now.GetValue(game);
+                int initial = game.Limit;
+                game.AddMoves();
+                Require(game.Limit == initial + 3 && view.moves.text == "Left " + initial,
+                    "Move tool must immediately grant its budget while starting the displayed count at the previous value.");
+                for (int step = 1; step <= 3; step++)
+                {
+                    now.SetValue(game, start + step * .16f + .01f); render.Invoke(game, null);
+                    Require(view.moves.text == "Left " + (initial + step), "Move count skipped its +" + step + " step.");
+                }
+                now.SetValue(game, start + .7f); render.Invoke(game, null);
+                Require(Mathf.Abs(view.moves.rectTransform.localScale.x - 1) < .001f, "Move count pulse did not settle.");
+                game.AddMoves(); game.AddMoves();
+                Require(game.Limit == initial + 9 && game.ExtraMovesRemaining == 0, "Repeated tool uses lost or duplicated steps.");
+                game.Retry();
+                now.SetValue(game, start + 3); render.Invoke(game, null);
+                Require(game.Limit == initial && view.moves.text == "Left " + initial, "Retry retained a previous count animation.");
+            }
+            finally
+            {
+                game.ResetGame(); inventory.SetValue(game, original);
+                if (had) PlayerPrefs.SetString(key, saved); else PlayerPrefs.DeleteKey(key);
+                PlayerPrefs.Save();
+            }
+        }
+
         private static void AnalyticsChecks()
         {
             string id = Guid.NewGuid().ToString("N"), prefix = "cc_feature_" + id;
@@ -119,6 +161,19 @@ namespace HueRelay.Editor
                 new HueTelemetry(id, prefix).EndSession();
                 Require(events.Any(e => e.Key == "previous_session_checkpoint" && (int)e.Value["previous_level"] == 4),
                     "Previous-session level checkpoint was lost.");
+                var revived = new HueTelemetry(id, prefix);
+                revived.Tick(true, true, 4, false, 240, 3, 0, 2);
+                revived.Finish(false);
+                string revivedAttempt = (string)events.Last(e => e.Key == "level_end").Value["attempt_id"];
+                revived.UpdateValues(240, 3, 3, 2); revived.Revive(3); revived.Revive(3);
+                Require(events.Count(e => e.Key == "level_revive") == 1
+                    && (string)events.Last(e => e.Key == "level_revive").Value["attempt_id"] == revivedAttempt,
+                    "Revive must resume the same attempt exactly once.");
+                revived.Finish(true); revived.Finish(true);
+                var final = events.Last(e => e.Key == "level_end").Value;
+                Require((string)final["result"] == "won" && (int)final["revive_count"] == 1,
+                    "A revived attempt did not record its eventual win.");
+                revived.EndSession();
             }
             finally
             {

@@ -411,6 +411,7 @@ namespace HueRelay
         /// <param name="n">数量或上界，具体含义见方法说明。</param>
         private void ConfettiFire(int direction, int n)
         {
+            if (Over && Won) victoryResultNotBefore = Mathf.Max(victoryResultNotBefore, now + .5f);
             audioBus.Tone(180, .14, .12);
             After(.03f, () => audioBus.Tone(330, .1, .05));
             HueAudio.Vibrate(10);
@@ -550,7 +551,7 @@ namespace HueRelay
                     Ring(t.to, Orange, cs * .2f, 3.2f, 3, 2);
                     bonusLanded++;
                     if (t.i == t.total - 1)
-                        After(.15f, ShowSheet);
+                        After(.15f, ShowVictorySheet);
                     tokens.RemoveAt(i);
                     continue;
                 }

@@ -98,6 +98,9 @@ namespace HueRelay
         public Text resultPrimaryText;
         public Button resultSecondary;
         public Text resultSecondaryText;
+        public Button resultRevive;
+        public Text resultReviveText;
+        public HueAdIcon resultReviveIcon;
         public Image resultEmblem;
         public Image victoryFlash;
 
@@ -138,6 +141,8 @@ namespace HueRelay
         private bool layoutTutorial;
         private Vector2 previewSize;
         private bool? shownComplete;
+        private bool resultStyleCaptured;
+        private Color resultPrimaryColor, resultPrimaryTextColor;
         private string measuredTutorial;
         private float measuredTutorialWidth = -1;
         private int measuredTutorialFontSize;
@@ -157,6 +162,7 @@ namespace HueRelay
         private readonly Dictionary<Text, int> hudFontSizes = new Dictionary<Text, int>();
         private readonly Vector3[] hudCorners = new Vector3[4];
         private Vector3 scoreRestScale = Vector3.one;
+        private Vector3 movesRestScale = Vector3.one;
         private bool moveNudging;
         private Vector3 moveRestScale;
         private Quaternion moveRestRotation;
@@ -303,6 +309,36 @@ namespace HueRelay
                 if (resultSecondaryText) resultSecondaryText.color = new Color(.38f, .41f, .51f);
             }
             MatchResultButtonStyle();
+            if (Application.isPlaying) EnsureResultReviveButton();
+        }
+
+        public void EnsureResultReviveButton()
+        {
+            if (!resultRevive && resultButtons)
+                resultRevive = resultButtons.Find("ResultReviveButton")?.GetComponent<Button>();
+            if (!resultRevive && resultButtons && resultPrimary)
+            {
+                resultRevive = Instantiate(resultPrimary, resultButtons, false);
+                resultRevive.name = "ResultReviveButton";
+                resultRevive.transform.SetAsFirstSibling();
+                // The cloned Retry/Next persistent callback must never run for a revive.
+                resultRevive.onClick = new Button.ButtonClickedEvent();
+                resultRevive.gameObject.SetActive(false);
+            }
+            if (resultRevive && !resultReviveText)
+                resultReviveText = resultRevive.GetComponentInChildren<Text>(true);
+            if (resultRevive && !resultReviveIcon)
+            {
+                resultReviveIcon = resultRevive.GetComponentInChildren<HueAdIcon>(true);
+                if (!resultReviveIcon)
+                {
+                    var icon = new GameObject("AdIcon", typeof(RectTransform), typeof(CanvasRenderer), typeof(HueAdIcon));
+                    icon.layer = resultRevive.gameObject.layer;
+                    icon.transform.SetParent(resultRevive.transform, false);
+                    resultReviveIcon = icon.GetComponent<HueAdIcon>();
+                    resultReviveIcon.raycastTarget = false;
+                }
+            }
         }
 
         public void MatchResultButtonStyle()
@@ -316,6 +352,12 @@ namespace HueRelay
             {
                 primary.sprite = movesChip.sprite;
                 primary.color = new Color(.29f, .40f, .97f);
+            }
+            if (!resultStyleCaptured)
+            {
+                resultPrimaryColor = primary.color;
+                resultPrimaryTextColor = resultPrimaryText ? resultPrimaryText.color : Color.white;
+                resultStyleCaptured = true;
             }
             secondary.sprite = primary.sprite;
             secondary.material = primary.material;
@@ -463,7 +505,7 @@ namespace HueRelay
         /// <summary>更新既有 HUD 节点；不再每帧生成固定背景、按钮和标签网格。</summary>
         public void SetHud(string scoreValue, Color scoreColor, float scoreScale, float scoreWidth,
             string bestValue, string titleValue, string movesValue, Color movesColor,
-            float fill, bool teaching, float movesWidth, int cleared, int total, bool complete)
+            float fill, bool teaching, float movesWidth, int cleared, int total, bool complete, float movesScale = 1)
         {
             score.text = scoreValue;
             score.color = scoreColor;
@@ -477,6 +519,7 @@ namespace HueRelay
             moves.text = movesValue;
             moves.color = movesColor;
             FitHudLabel(moves);
+            moves.rectTransform.localScale = movesRestScale * movesScale;
             Vector2 maximum = progressFill.anchorMax;
             maximum.x = Mathf.Clamp01(fill);
             progressFill.anchorMax = maximum;
@@ -685,8 +728,9 @@ namespace HueRelay
 
         /// <summary>居中呈现结算卡片，轻微上浮淡入；胜利保留明亮棋盘背景。</summary>
         public void SetResult(bool win, bool newRecord, float scale, float easing, string title, string number,
-            string detail, string primary, string secondary)
+            string detail, string primary, string secondary, bool revivePending = false, bool reviveUnavailable = false)
         {
+            if (!resultStyleCaptured) MatchResultButtonStyle();
             SetActive(resultBackdrop.gameObject, true);
             SetActive(resultGroup.gameObject, true);
             resultGroup.alpha = Mathf.Clamp01(easing);
@@ -707,9 +751,11 @@ namespace HueRelay
                 resultDetail.rectTransform.sizeDelta = new Vector2(detailWidth, 200);
                 resultDetailHeight = CardTextHeight(resultDetail);
             }
-            float detailHeight = resultDetailHeight;
+            SetActive(resultDetail.gameObject, win);
+            float detailHeight = win ? resultDetailHeight : 0;
             RectTransform card = (RectTransform)resultGroup.transform;
-            float height = (win ? 370 : 308) + detailHeight;
+            bool showRevive = !win && resultRevive;
+            float height = (win ? 370 : showRevive ? 380 : 308) + detailHeight;
             card.sizeDelta = new Vector2(width, height);
             card.anchorMin = card.anchorMax = card.pivot = new Vector2(.5f, .5f);
             card.anchoredPosition = new Vector2(0, -(1 - easing) * 18 * scale);
@@ -720,6 +766,34 @@ namespace HueRelay
             resultDetail.text = detail;
             resultPrimaryText.text = primary;
             resultSecondaryText.text = secondary;
+            var primaryBackground = resultPrimary.GetComponent<Image>();
+            var secondaryBackground = resultSecondary.GetComponent<Image>();
+            primaryBackground.color = win ? resultPrimaryColor : secondaryBackground.color;
+            resultPrimaryText.color = win ? resultPrimaryTextColor : resultSecondaryText.color;
+            resultPrimary.interactable = resultSecondary.interactable = !revivePending;
+            if (resultRevive)
+            {
+                SetActive(resultRevive.gameObject, showRevive);
+                resultRevive.interactable = !revivePending;
+                var background = resultRevive.GetComponent<Image>();
+                background.sprite = primaryBackground.sprite;
+                background.material = primaryBackground.material;
+                background.type = primaryBackground.type;
+                background.pixelsPerUnitMultiplier = primaryBackground.pixelsPerUnitMultiplier;
+                background.color = resultPrimaryColor;
+                resultReviveText.color = resultPrimaryTextColor;
+                resultReviveText.text = revivePending ? "Loading..." : reviveUnavailable ? "Try Again" : "+3 Moves";
+                FitLabel(resultReviveText, detailWidth - 72, 20);
+                if (resultReviveIcon)
+                {
+                    SetActive(resultReviveIcon.gameObject, !revivePending);
+                    resultReviveIcon.color = resultPrimaryTextColor;
+                    float textWidth = Mathf.Min(detailWidth - 72, resultReviveText.preferredWidth);
+                    float left = (detailWidth - textWidth - (revivePending ? 0 : 34)) * .5f;
+                    SetResultBox(resultReviveIcon.rectTransform, left, 20, 24, 20);
+                    PlaceCenter(resultReviveText.rectTransform, new Vector2(left + (revivePending ? 0 : 34) + textWidth * .5f, 30), new Vector2(textWidth, 32));
+                }
+            }
             FitLabel(resultTitle, detailWidth, 22);
             FitLabel(resultScore, detailWidth, 68);
             FitLabel(resultPrimaryText, detailWidth - 32, 17);
@@ -733,9 +807,10 @@ namespace HueRelay
             SetResultBox(resultScore.rectTransform, 24, win ? 128 : 70, detailWidth, 76);
             SetResultBox(resultDetail.rectTransform, 24, win ? 210 : 150, detailWidth, detailHeight);
             resultDetail.color = newRecord && win ? new Color(.12f, .58f, .43f) : new Color(.46f, .49f, .61f);
-            SetResultBox(resultButtons, 24, height - 132, detailWidth, 110);
-            SetResultBox(resultPrimary.GetComponent<RectTransform>(), 0, 0, detailWidth, 50);
-            SetResultBox(resultSecondary.GetComponent<RectTransform>(), 0, 60, detailWidth, 50);
+            SetResultBox(resultButtons, 24, height - (showRevive ? 204 : 132), detailWidth, showRevive ? 182 : 110);
+            if (showRevive) SetResultBox((RectTransform)resultRevive.transform, 0, 0, detailWidth, 60);
+            SetResultBox(resultPrimary.GetComponent<RectTransform>(), 0, showRevive ? 72 : 0, detailWidth, 50);
+            SetResultBox(resultSecondary.GetComponent<RectTransform>(), 0, showRevive ? 132 : 60, detailWidth, 50);
             SetActive(resultSecondary.gameObject, true);
         }
 
@@ -838,6 +913,7 @@ namespace HueRelay
         private void OnEnable()
         {
             if (score) scoreRestScale = score.rectTransform.localScale;
+            if (moves) movesRestScale = moves.rectTransform.localScale;
             hudFontSizes.Clear();
             Preview();
         }

@@ -129,15 +129,18 @@ namespace HueRelay
                 drawnEndless = Endless;
                 titleText = tut >= 0 ? "How to Play" : Endless ? "Endless" : "Level " + (LevelIndex + 1);
             }
-            int movesLeft = Mathf.Max(0, Limit - Taps);
+            RevealAddedMoves();
+            int movesLeft = Mathf.Max(0, Limit - Taps - movesPendingReveal);
+            float movePulseTime = (now - moveCountPulseAt) / MoveCountStepSeconds;
+            float movePulse = movePulseTime >= 0 && movePulseTime < 1 ? Mathf.Sin(movePulseTime * Mathf.PI) : 0;
             if (movesLeft != drawnMovesLeft)
             {
                 drawnMovesLeft = movesLeft;
                 movesText = "Left " + movesLeft;
             }
             sceneView.SetHud(scoreText, scoreColor, scoreScale, scoreW / K, bestText, titleText,
-                chipOverride ?? movesText, Limit - Taps <= 2 ? Orange : Ink,
-                progress, tut >= 0, chipRect.width / K, P.n - HueEngine.PC(Mask), P.n, Won && Over);
+                chipOverride ?? movesText, movePulse > 0 ? Blue : movesLeft <= 2 ? Orange : Ink,
+                progress, tut >= 0, chipRect.width / K, P.n - HueEngine.PC(Mask), P.n, Won && Over, 1 + .1f * movePulse);
             sceneView.SetPowerUps(hints, eraseUses, extraMoveUses, CanRequestHint, CanRequestErase, CanRequestExtraMoves, IsChoosingErase);
         }
 
@@ -573,13 +576,14 @@ namespace HueRelay
                 cachedModal = modalAt;
                 resultTitle = Won ? (Endless ? "Board cleared!" : "Level " + (LevelIndex + 1) + " complete!") : "Out of moves";
                 resultScore = Score.ToString();
-                resultDetail = Won ? (record ? "NEW BEST" : "TOTAL SCORE") : HueEngine.PC(Mask) + (HueEngine.PC(Mask) == 1 ? " arrow left" : " arrows left") + "  ·  Give it another try";
+                resultDetail = Won ? (record ? "NEW BEST" : "TOTAL SCORE") : "";
                 resultMain = !Won ? "Retry" : Endless ? "New Board" : IsLastCampaignLevel ? "Endless Mode" : "Next Level";
                 resultSecondary = "Home";
             }
 
             float p = 1 - Mathf.Pow(1 - Mathf.Clamp01((now - modalAt) / .42f), 3);
-            sceneView.SetResult(Won, record, K, p, resultTitle, resultScore, resultDetail, resultMain, resultSecondary);
+            sceneView.SetResult(Won, record, K, p, resultTitle, resultScore,
+                resultDetail, resultMain, resultSecondary, revivePending, reviveUnavailable);
         }
     }
 }

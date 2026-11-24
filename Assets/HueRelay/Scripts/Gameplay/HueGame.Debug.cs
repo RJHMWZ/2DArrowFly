@@ -8,7 +8,7 @@ namespace HueRelay
     public sealed partial class HueGame
     {
         public bool DebugCanEdit => enabled && P != null && !generating && !adBreakActive
-            && !IsPowerUpAdPending && !(Ads && Ads.IsBusy);
+            && !IsPowerUpAdPending && !revivePending && !(Ads && Ads.IsBusy);
         public int DebugBestScore => bestScore;
 
         private void DebugRequireReady()

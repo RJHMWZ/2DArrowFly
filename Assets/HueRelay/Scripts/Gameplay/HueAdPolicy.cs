@@ -14,10 +14,10 @@ namespace HueRelay
 
         [Header("Interstitial pacing (foreground session time)")]
         [Min(0)] public int protectedCampaignLevels = 3;
-        [Min(1)] public int winsBetweenInterstitials = 3;
-        [Min(15)] public float firstInterstitialAfterSeconds = 120;
-        [Min(30)] public float interstitialIntervalSeconds = 90;
-        [Min(0)] public float rewardedGraceSeconds = 120;
+        [Min(1)] public int winsBetweenInterstitials = 2;
+        [Min(15)] public float firstInterstitialAfterSeconds = 30;
+        [Min(30)] public float interstitialIntervalSeconds = 60;
+        [Min(0)] public float rewardedGraceSeconds = 60;
         [Min(0)] public int maxInterstitialsPerSession = 6;
 
         [Header("Loading and failure recovery")]

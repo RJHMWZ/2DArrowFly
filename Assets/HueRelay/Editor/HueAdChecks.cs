@@ -32,6 +32,12 @@ namespace HueRelay.Editor
             checks = 0; var config = Config();
             try
             {
+                ProductionPolicyChecks();
+                // Keep coverage for custom policies with stricter timing/win spacing.
+                config.winsBetweenInterstitials = 3;
+                config.firstInterstitialAfterSeconds = 120;
+                config.interstitialIntervalSeconds = 90;
+                config.rewardedGraceSeconds = 120;
                 var pacing = ReadyPolicy(config);
                 Require(pacing.InterstitialBlock(120, Win(), false, true) == null, "Normal win boundary did not qualify.");
                 foreach (int level in new[] { 1, 2, 3 }) Require(pacing.InterstitialBlock(999, Win(level), false, true) == "protected_level", "Early level was not protected.");
@@ -39,7 +45,7 @@ namespace HueRelay.Editor
                 Require(pacing.InterstitialBlock(120, Win(), true, true) == "another_ad_active", "Overlapping ads allowed.");
                 Require(pacing.InterstitialBlock(120, Win(), false, false) == "not_loaded", "Unloaded interstitial was eligible.");
                 var failure = Win(); failure.won = false;
-                Require(pacing.InterstitialBlock(120, failure, false, true) == null, "Failure result boundary did not qualify.");
+                Require(pacing.InterstitialBlock(120, failure, false, true) == "not_a_win", "Failure result must not show an interstitial.");
                 foreach (int flag in new[] { 1, 2 })
                 {
                     var context = Win(); if (flag == 1) context.beforeResult = false; else context.tutorialActive = true;
@@ -75,6 +81,33 @@ namespace HueRelay.Editor
                 File.WriteAllText("Logs/Ads/policy-checks.txt", "PASS: " + checks + " policy checks: startup/module floors, early levels, natural win boundaries, win spacing, readiness, one ad at a time, cooldown/backoff, rewarded grace, session cap, disabled and missing placements.\n");
             }
             finally { UnityEngine.Object.DestroyImmediate(config); }
+        }
+
+        private static void ProductionPolicyChecks()
+        {
+            var config = Resources.Load<HueAdPolicy>("HueRelay/Data/AdPolicy");
+            Require(config && config.winsBetweenInterstitials == 2 && config.FirstInterstitialDelay == 30
+                && config.InterstitialInterval == 60 && config.rewardedGraceSeconds == 60,
+                "Production interstitial policy must use two wins and 30/60/60-second timing.");
+            var pacing = new HueAdPacing(config); pacing.RecordModuleStarted(0);
+            pacing.RecordWin();
+            Require(pacing.InterstitialBlock(29, Win(), false, true) == "session_warmup", "Production startup delay bypassed.");
+            Require(pacing.InterstitialBlock(30, Win(), false, true) == "not_enough_wins", "One win must not qualify.");
+            pacing.RecordWin();
+            Require(pacing.InterstitialBlock(30, Win(), false, true) == null, "Two wins after 30 seconds must qualify.");
+            foreach (int level in new[] { 1, 2, 3 })
+                Require(pacing.InterstitialBlock(30, Win(level), false, true) == "protected_level", "Teaching levels must remain protected.");
+            var failure = Win(); failure.won = false;
+            Require(pacing.InterstitialBlock(30, failure, false, true) == "not_a_win", "Only victories may trigger ads.");
+            pacing.RecordInterstitialAttempt(30); pacing.RecordInterstitialClosed(30); pacing.RecordWin();
+            Require(pacing.InterstitialBlock(90, Win(), false, true) == "not_enough_wins", "Win count must reset after an interstitial.");
+            pacing.RecordWin();
+            Require(pacing.InterstitialBlock(89, Win(), false, true) == "interval", "Production interstitial interval bypassed.");
+            Require(pacing.InterstitialBlock(90, Win(), false, true) == null, "Two further wins after 60 seconds must qualify.");
+            pacing.RecordRewardedActivity(100);
+            Require(pacing.InterstitialBlock(159, Win(), false, true) == "rewarded_grace", "Rewarded protection bypassed.");
+            Require(pacing.InterstitialBlock(160, Win(), false, true) == null, "Rewarded protection must expire after 60 seconds.");
+            Require(pacing.InterstitialBlock(160, Win(), false, false) == "not_loaded", "Unloaded ad must not qualify.");
         }
 
         private sealed class Backend : IHueAdBackend
@@ -196,9 +229,12 @@ namespace HueRelay.Editor
                 Require(backend.preloads == 0 && backend.shows == 0 && continued == 1, "Disabled policy called the backend or blocked navigation.");
                 config.adsEnabled = true;
 
-                // Both result panels wait for close; navigation afterwards never requests an ad.
-                time = 0; backend = new Backend(); ads.Initialize(game, config, backend, () => time); ads.Tick(); time = 120;
-                ads.RecordWin(); ads.RecordWin(); ads.RecordWin(); Result(game, true);
+                // Two wins qualify after warmup; navigation afterwards never requests an ad.
+                time = 0; backend = new Backend(); ads.Initialize(game, config, backend, () => time); ads.Tick(); time = 30;
+                ads.RecordWin(); Result(game, true);
+                Require(!game.IsAdBreakActive && game.ModalVisible && backend.shows == 0, "First win must not show an interstitial.");
+                game.ContinueResult();
+                ads.RecordWin(); Result(game, true);
                 game.ContinueResult(); game.ContinueResult(); game.ReturnHome();
                 Require(game.IsAdBreakActive && ads.IsBusy && backend.shows == 1 && game.LevelIndex == 3 && !game.ModalVisible,
                     "Winning result was not gated or repeated the ad.");
@@ -212,10 +248,9 @@ namespace HueRelay.Editor
 
                 time = 0; backend = new Backend(); ads.Initialize(game, config, backend, () => time); ads.Tick(); time = 120;
                 ads.RecordWin(); ads.RecordWin(); ads.RecordWin(); Result(game, false);
-                Require(game.IsAdBreakActive && !game.ModalVisible && backend.shows == 1,"Failure panel did not wait for interstitial.");
-                backend.complete(HueAdOutcome.Completed);
-                Require(game.ModalVisible && !game.Won && !game.IsAdBreakActive,"Failure panel did not appear after close.");
-                game.ContinueResult(); Require(backend.shows == 1 && !game.Over,"Retry requested another ad.");
+                Require(!game.IsAdBreakActive && !ads.IsBusy && game.ModalVisible && backend.shows == 0,
+                    "Failure must reveal its panel without an interstitial, even after previous wins.");
+                game.ContinueResult(); Require(backend.shows == 0 && !game.Over,"Retry requested another ad.");
 
                 time = 0; backend = new Backend(); ads.Initialize(game, config, backend, () => time); ads.Tick(); time = 120;
                 ads.RecordWin(); ads.RecordWin(); ads.RecordWin(); backend.ready[1] = false; Result(game, true); game.ContinueResult();
@@ -232,8 +267,10 @@ namespace HueRelay.Editor
                 Require(!game.IsAdBreakActive && !ads.IsBusy && game.LevelIndex == 4, "Show exception blocked result navigation.");
                 Require(new HuePowerUpInventory(game.PowerUpSettings, InventoryKey).Count(HuePowerUpKind.Hint) == 0,
                     "Non-rewarded ad outcome changed inventory.");
+                ReviveChecks(game, ads, config);
+                VictoryTimingChecks(game, config);
                 Directory.CreateDirectory("Logs/Ads");
-                File.WriteAllText("Logs/Ads/runtime-checks.txt", "PASS: " + checks + " checks: preload without showing; explicit opt-in; no early grant; exactly-once +1 persisted reward; cancellation/stale callbacks; no-fill; win/failure pre-result single-flight; failure Retry has no ads; skip unloaded; timeout/late-close recovery; show exceptions; game audio restored. Player inventory and tutorial flag restored.\n");
+                File.WriteAllText("Logs/Ads/runtime-checks.txt", "PASS: " + checks + " checks: preload without showing; explicit opt-in; no early grant; exactly-once +1 persisted reward; cancellation/stale callbacks; no-fill; two-win/30-second pre-result single-flight; no automatic failure/Retry ads; opt-in revive +3, duplicate/cancel/no-fill/timeout/stale callback protection; half-second post-jet victory delay; skip unloaded; timeout/late-close recovery; show exceptions; game audio restored. Player inventory and tutorial flag restored.\n");
             }
             finally
             {
@@ -247,6 +284,87 @@ namespace HueRelay.Editor
                 focusField.SetValue(ads, oldFocus);
                 UnityEngine.Object.DestroyImmediate(config);
             }
+        }
+
+        private static void ReviveFailure(HueGame game)
+        {
+            Result(game, false);
+            typeof(HueGame).GetProperty("Mask").SetValue(game, HueEngine.Chain(game.P, game.Mask, game.P.L.solution[0]));
+            typeof(HueGame).GetProperty("Taps").SetValue(game, game.Limit);
+            typeof(HueGame).GetProperty("Score").SetValue(game, 240);
+            typeof(HueGame).GetMethod("Render", Private).Invoke(game, null);
+        }
+
+        private static void ReviveChecks(HueGame game, HueAds ads, HueAdPolicy config)
+        {
+            double time = 0;
+            var backend = new Backend(); ads.Initialize(game, config, backend, () => time); ads.Tick(); time = 120;
+            Inventory(game); ReviveFailure(game);
+            int mask = game.Mask, taps = game.Taps, limit = game.Limit, level = game.LevelIndex;
+            var view = UnityEngine.Object.FindObjectOfType<HueView>();
+            Require(view.resultRevive && view.resultRevive.gameObject.activeSelf, "Failure is missing its revive button.");
+            Require(view.resultPrimary.GetComponent<UnityEngine.UI.Image>().color == view.resultSecondary.GetComponent<UnityEngine.UI.Image>().color,
+                "Retry must use the Home background.");
+            view.resultRevive.onClick.Invoke(); game.WatchReviveAd();
+            Require(backend.shows == 1 && backend.format == HueAdFormat.Rewarded && game.IsReviveAdPending
+                && game.Over && game.ModalVisible && game.Limit == limit, "Revive was not opt-in, single-flight or rewarded early.");
+            game.Retry(); game.ContinueResult(); game.ReturnHome();
+            Require(game.IsReviveAdPending && game.Mask == mask && game.LevelIndex == level,
+                "Navigation changed the board during a revive ad.");
+            var complete = backend.complete; complete(HueAdOutcome.Completed); complete(HueAdOutcome.Completed);
+            Require(!game.IsReviveAdPending && !game.Over && !game.ModalVisible && game.Limit == limit + 3
+                && game.Taps == taps && game.Mask == mask && game.Score == 240 && game.LevelIndex == level,
+                "Completed revive must add exactly three moves and preserve the current board/score.");
+            Require(game.HintsRemaining == 0 && game.ErasersRemaining == 0 && game.ExtraMovesRemaining == 0,
+                "Revive must not add inventory tools.");
+            game.Retry();
+            Require(game.Limit == limit && game.Taps == 0 && game.Mask == game.P.Full, "Retry retained revive moves.");
+
+            foreach (var outcome in new[] { HueAdOutcome.Cancelled, HueAdOutcome.Failed, HueAdOutcome.TimedOut })
+            {
+                time = 0; backend = new Backend(); ads.Initialize(game, config, backend, () => time); ads.Tick(); time = 120;
+                ReviveFailure(game); game.WatchReviveAd(); complete = backend.complete;
+                if (outcome == HueAdOutcome.TimedOut) { time += config.PlaybackTimeout + 1; ads.Tick(); }
+                else complete(outcome);
+                complete(HueAdOutcome.Completed);
+                Require(game.Over && game.ModalVisible && !game.IsReviveAdPending && game.Limit == limit && game.Mask == mask,
+                    "Cancelled/failed/timed-out revive or late success changed the board: " + outcome);
+                Require(view.resultPrimary.interactable && view.resultSecondary.interactable && view.resultRevive.interactable,
+                    "Unsuccessful revive left result buttons locked.");
+            }
+            time = 0; backend = new Backend(); ads.Initialize(game, config, backend, () => time); ads.Tick(); time = 120;
+            ReviveFailure(game); backend.ready[0] = false; game.WatchReviveAd();
+            Require(backend.shows == 0 && !game.IsReviveAdPending && game.Over && game.Limit == limit, "No-fill revive blocked the UI or granted moves.");
+
+            time = 0; backend = new Backend(); ads.Initialize(game, config, backend, () => time); ads.Tick(); time = 120;
+            ReviveFailure(game); game.WatchReviveAd(); complete = backend.complete;
+            game.ResetGame(); complete(HueAdOutcome.Completed);
+            Require(!game.Over && !game.ModalVisible && game.Limit == limit && game.Mask == game.P.Full,
+                "A stale revive callback changed a restarted board.");
+        }
+
+        private static void VictoryTimingChecks(HueGame game, HueAdPolicy config)
+        {
+            bool enabled = config.adsEnabled; config.adsEnabled = false;
+            try
+            {
+                Board(game);
+                typeof(HueGame).GetProperty("Mask").SetValue(game, 0);
+                typeof(HueGame).GetProperty("Taps").SetValue(game, game.Limit);
+                float start = (float)typeof(HueGame).GetField("now", Private).GetValue(game);
+                typeof(HueGame).GetMethod("Finish", Private).Invoke(game, new object[] { true });
+                var now = typeof(HueGame).GetField("now", Private);
+                var show = typeof(HueGame).GetMethod("ShowVictorySheet", Private);
+                now.SetValue(game, start + .8f); show.Invoke(game, null);
+                Require(!game.ModalVisible, "Victory panel appeared before the side jets.");
+                now.SetValue(game, start + 1.3f);
+                typeof(HueGame).GetMethod("ConfettiFire", Private).Invoke(game, new object[] { -1, 1 });
+                now.SetValue(game, start + 1.79f); show.Invoke(game, null);
+                Require(!game.ModalVisible, "Victory panel did not wait half a second after the actual jet.");
+                now.SetValue(game, start + 1.81f); show.Invoke(game, null);
+                Require(game.ModalVisible && game.Won, "Victory panel did not appear after its celebration delay.");
+            }
+            finally { config.adsEnabled = enabled; game.ResetGame(); }
         }
     }
 }

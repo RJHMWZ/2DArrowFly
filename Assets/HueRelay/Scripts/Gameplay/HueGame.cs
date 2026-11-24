@@ -401,7 +401,7 @@ namespace HueRelay
         /// <summary>胜负面板的 Home 入口，清理本局动画后返回主菜单。</summary>
         public void ReturnHome()
         {
-            if (adBreakActive) return;
+            if (adBreakActive || revivePending) return;
             if (mainMenu && mainMenu.IsPauseSettingsOpen) return;
             if ((!sheetVisible && !IsPaused) || generating) return;
             ReturnHomeNow();
@@ -507,6 +507,8 @@ namespace HueRelay
         public void ResetGame()
         {
             telemetry?.Leave("restart");
+            CancelRevive();
+            ResetMoveCountFeedback();
             ResetIdleMoveGuide();
             CancelAdNavigation();
             if (mainMenu && mainMenu.IsPauseSettingsOpen) mainMenu.CloseSettings();
@@ -535,6 +537,7 @@ namespace HueRelay
             punchAt = endAt = modalAt = comboAt = mileAt = scorePop = -100;
             hintId = -1;
             remaining = bonusLaunched = bonusLanded = 0;
+            victoryResultNotBefore = -1;
             chipOverride = null;
             tut = -1;
             snapshot = null;
@@ -749,7 +752,7 @@ namespace HueRelay
         /// <summary>场景中重试按钮的持久化事件入口。</summary>
         public void Retry()
         {
-            if (enabled && root && P != null && LevelCount > 0 && !generating && tut < 0 && !adBreakActive)
+            if (enabled && root && P != null && LevelCount > 0 && !generating && tut < 0 && !adBreakActive && !revivePending)
             {
                 telemetry?.Leave("retry");
                 ResetGame();
@@ -759,14 +762,14 @@ namespace HueRelay
         /// <summary>场景中帮助按钮的持久化事件入口。</summary>
         public void OpenHelp()
         {
-            if (enabled && root && P != null && LevelCount > 0 && !generating && tut < 0 && !adBreakActive)
+            if (enabled && root && P != null && LevelCount > 0 && !generating && tut < 0 && !adBreakActive && !revivePending)
                 StartTutorial();
         }
 
         /// <summary>结算主按钮入口；面板关闭后忽略同一帧重复点击。</summary>
         public void ContinueResult()
         {
-            if (generating || !sheetVisible || adBreakActive)
+            if (generating || !sheetVisible || adBreakActive || revivePending)
                 return;
             ContinueResultNow();
         }
@@ -857,6 +860,7 @@ namespace HueRelay
                 return;
             Over = true;
             Won = win;
+            ResetMoveCountFeedback();
             CancelErase();
             endAt = now;
             remaining = Mathf.Max(0, Limit - Taps);
@@ -891,9 +895,10 @@ namespace HueRelay
             Spawn(new Vector2(P.L.w * cs / 2, P.L.h * cs / 2), Blue, 5, Vector2.down);
             Ring(new Vector2(P.L.w * cs / 2, P.L.h * cs / 2), Blue, cs * .3f, 15, .9f, 3);
             Confetti(tier);
+            victoryResultNotBefore = now + 1.7f;
             // 庆祝与奖励转换衔接，避免结算前长时间空等。
             if (remaining == 0)
-                After(.8f, ShowSheet);
+                After(.8f, ShowVictorySheet);
             else
                 for (int i = 0; i < remaining; i++)
                 {
@@ -910,6 +915,16 @@ namespace HueRelay
         /// <summary>
         /// 显示唯一的结算面板；胜利时在奖励落点全部计分后保存最高分。
         /// </summary>
+        private float victoryResultNotBefore = -1;
+
+        private void ShowVictorySheet()
+        {
+            if (!Over || !Won) return;
+            float delay = victoryResultNotBefore - now;
+            if (delay > .001f) { After(delay, ShowVictorySheet); return; }
+            ShowSheet();
+        }
+
         private void ShowSheet()
         {
             if (sheetVisible || adBreakActive || !Over)
@@ -944,7 +959,7 @@ namespace HueRelay
         {
             TickTelemetry();
             UpdateIdleMoveGuide();
-            if (adBreakActive) return;
+            if (adBreakActive || revivePending) return;
             if (mainMenu && mainMenu.IsVisible) return;
             if (Input.GetKeyDown(KeyCode.Escape))
             {

@@ -25,6 +25,11 @@ namespace HueRelay
             // Upgrade the callback in an already-open scene as well as on disk.
             sceneView.resultSecondary.onClick = new Button.ButtonClickedEvent();
             sceneView.resultSecondary.onClick.AddListener(ReturnHome);
+            if (sceneView.resultRevive)
+            {
+                sceneView.resultRevive.onClick = new Button.ButtonClickedEvent();
+                sceneView.resultRevive.onClick.AddListener(WatchReviveAd);
+            }
             pauseMenu = sceneView.canvas.GetComponentInChildren<HuePauseMenu>(true);
             if (pauseMenu)
             {

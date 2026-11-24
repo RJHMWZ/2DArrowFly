@@ -8,7 +8,7 @@ namespace HueRelay
         private bool analyticsFocused = true, analyticsPaused, analyticsHostVisible = true;
         private void TrackGameEvent(string name, params object[] fields) => telemetry?.Track(name, fields);
         public void TrackAdEvent(string value) => TrackGameEvent("ad_event", "detail", value,
-            "placement", adBreakActive ? (Won ? "result_win" : "result_fail") : refillOpen ? refillKind.ToString() : "preload");
+            "placement", revivePending ? "failure_revive" : adBreakActive ? (Won ? "result_win" : "result_fail") : refillOpen ? refillKind.ToString() : "preload");
         private void TickTelemetry()
         {
             if (telemetry == null || P == null) return;
@@ -20,7 +20,7 @@ namespace HueRelay
         private void UpdateTelemetryValues() => telemetry?.UpdateValues(Score, Taps, Mathf.Max(0, Limit - Taps), HueEngine.PC(Mask));
         private void RefreshTelemetryVisibility()
         {
-            telemetry?.Visibility(analyticsFocused && !analyticsPaused && analyticsHostVisible, adBreakActive || refillPending);
+            telemetry?.Visibility(analyticsFocused && !analyticsPaused && analyticsHostVisible, adBreakActive || refillPending || revivePending);
             ResetIdleMoveGuide();
         }
         public void TelemetryHostVisibility(bool visible)

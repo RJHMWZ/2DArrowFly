@@ -10,6 +10,31 @@ namespace HueRelay
         private int erasingArrow = -1;
         private float eraseStarted;
         private float eraseDuration;
+        private const float MoveCountStepSeconds = .16f;
+        private int movesPendingReveal;
+        private float nextMoveRevealAt = -1, moveCountPulseAt = -100;
+
+        private void AnimateAddedMoves(int amount)
+        {
+            RevealAddedMoves();
+            if (movesPendingReveal == 0) nextMoveRevealAt = now + MoveCountStepSeconds;
+            movesPendingReveal += amount;
+        }
+
+        private void RevealAddedMoves()
+        {
+            if (movesPendingReveal <= 0 || now < nextMoveRevealAt) return;
+            int count = Mathf.Min(movesPendingReveal, 1 + Mathf.FloorToInt((now - nextMoveRevealAt) / MoveCountStepSeconds));
+            movesPendingReveal -= count;
+            moveCountPulseAt = nextMoveRevealAt + (count - 1) * MoveCountStepSeconds;
+            nextMoveRevealAt += count * MoveCountStepSeconds;
+        }
+
+        private void ResetMoveCountFeedback()
+        {
+            movesPendingReveal = 0;
+            nextMoveRevealAt = -1; moveCountPulseAt = -100;
+        }
         public bool IsChoosingErase { get; private set; }
         public bool IsErasing => erasingArrow >= 0;
         private float EraseProgress => IsErasing ? Mathf.Clamp01((now - eraseStarted) / eraseDuration) : 0;
@@ -89,8 +114,8 @@ namespace HueRelay
             if (!Inventory.TrySpend(HuePowerUpKind.ExtraMoves)) return;
             TrackGameEvent("powerup_use", "powerup", "extra_moves");
             Limit += 3;
+            AnimateAddedMoves(3);
             finishAt = -1;
-            Pop(1.12f);
             audioBus.Tone(784, .14, .07);
             Render();
         }

@@ -130,6 +130,19 @@ namespace HueRelay
             Show(HueAdFormat.Interstitial, _ => continued());
         }
 
+        public void TryRevive(Action<bool> completed)
+        {
+            if (backend == null || pacing == null || !isActiveAndEnabled) { completed(false); return; }
+            string blocked = pacing.RewardedBlock(Now, pending);
+            if (blocked == null && (!game.IsReviveAdPending || !game.Over || game.Won || !game.ModalVisible
+                || game.TutorialStepIndex >= 0 || !game.HasCompletedTutorial)) blocked = "not_a_revive_opt_in";
+            if (blocked != "another_ad_active" && game.IsReviveAdPending) pacing.RecordRewardedActivity(Now);
+            if (blocked == null && !backend.IsReady(HueAdFormat.Rewarded)) blocked = "not_loaded";
+            if (blocked != null) { Trace("Rewarded:revive:skip:" + blocked); completed(false); return; }
+            Trace("Rewarded:revive:opt_in");
+            Show(HueAdFormat.Rewarded, result => completed(result == HueAdOutcome.Completed));
+        }
+
         private void Show(HueAdFormat format, Action<HueAdOutcome> completed)
         {
             pending = true; pendingFormat = format; finished = completed; playbackStarted = Now;

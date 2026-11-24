@@ -10,7 +10,7 @@ namespace HueRelay
         [Serializable] private sealed class Attempt
         {
             public string id, session, mode, status;
-            public int level, number, score, taps, movesLeft, arrowsLeft;
+            public int level, number, score, taps, movesLeft, arrowsLeft, revives;
             public float activeSeconds;
             public bool firstAction;
         }
@@ -100,6 +100,14 @@ namespace HueRelay
             Track("level_leave", "reason", reason); SaveCheckpoint();
             attempt = null;
         }
+        public void Revive(int addedMoves)
+        {
+            if (attempt == null || attempt.status != "failed") return;
+            attempt.status = "playing";
+            attempt.revives++;
+            Track("level_revive", "moves_added", addedMoves);
+            SaveCheckpoint();
+        }
         public void Visibility(bool value, bool adActive)
         {
             if (visible == value || ended) return;
@@ -132,6 +140,7 @@ namespace HueRelay
             {
                 data["level"] = attempt.level; data["mode"] = attempt.mode; data["attempt_id"] = attempt.id;
                 data["attempt_no"] = attempt.number; data["status"] = attempt.status;
+                data["revive_count"] = attempt.revives;
                 data["score"] = attempt.score; data["taps"] = attempt.taps; data["moves_left"] = attempt.movesLeft;
                 data["arrows_left"] = attempt.arrowsLeft; data["active_sec"] = Math.Round(attempt.activeSeconds, 2);
             }
