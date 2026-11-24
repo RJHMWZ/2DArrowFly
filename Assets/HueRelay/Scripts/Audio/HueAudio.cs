@@ -16,6 +16,24 @@ namespace HueRelay
         public float effectsVolume = .5f;
         public static bool SoundEnabled = true;
         public static bool VibrationEnabled = true;
+        private static readonly long[] ShortVibrationPattern = { 15 };
+#if IVY_SDK_TT && UNITY_WEBGL && !UNITY_EDITOR && !UNITY_LUNA
+        private static readonly TTSDK.VibrateShortParam ShortVibration = new TTSDK.VibrateShortParam();
+#endif
+
+        public static void VibrateShort()
+        {
+            if (!VibrationEnabled) return;
+#if IVY_SDK_TT && UNITY_WEBGL && !UNITY_EDITOR && !UNITY_LUNA
+            try
+            {
+                if (TTSDK.CanIUse.VibrateShort) TTSDK.TT.VibrateShort(ShortVibration);
+            }
+            catch (Exception) { /* Unsupported device/host: gameplay continues. */ }
+#else
+            Vibrate(ShortVibrationPattern);
+#endif
+        }
 
         [Serializable]
         private struct PlayableTone

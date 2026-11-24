@@ -1,4 +1,4 @@
-"""Rebalance levels 11-100 offline, preserving the first ten puzzles and gameplay rules.
+"""Rebalance levels 11-100 offline, preserving the first ten layouts and gameplay rules.
 
 No runtime generation or ads are introduced. Every board has a certified solution.
 """
@@ -15,8 +15,8 @@ DATA = ROOT / 'Assets/HueRelay/Resources/HueRelay/Data/Levels.json'
 # title, design goal, width, height, arrows min/max, hints, erasers, extra, slack
 PROFILES = [
     ('First Connections', '保留原入门布局和步数', 5, 6, 4, 8, 1, 1, 0, 4),
-    ('Read the Routes', '提前引入三色和有代价的出手顺序', 6, 8, 10, 14, 1, 0, 0, 2),
-    ('Three Colors', '交叉阻挡并收紧容错', 7, 9, 14, 19, 1, 0, 0, 1),
+    ('Read the Routes', '提前引入三色和有代价的出手顺序', 6, 8, 10, 14, 1, 0, 0, 0),
+    ('Three Colors', '交叉阻挡并收紧容错', 7, 9, 14, 19, 1, 0, 0, 0),
     ('Crossed Paths', '必须保留同色连锁桥梁', 8, 10, 19, 24, 1, 0, 0, 0),
     ('Find the Gate', '多层门控和精确顺序', 9, 12, 24, 28, 1, 0, 0, 0),
     ('Plan the Order', '密集多色依赖', 9, 12, 28, 30, 1, 0, 0, 0),
@@ -52,6 +52,8 @@ def validate(level):
     author.valid_shape(level)
     board=board_for(level); mask=board.full
     assert level['moves']>=level['par']==len(level['solution'])
+    if level['id']>=4:
+        assert level['moves']==level['par']<len(level['a']), level['id']
     for selected in level['solution']:
         assert selected in board.free(mask), (level['id'],selected)
         mask=board.chain(mask,selected)
@@ -61,8 +63,11 @@ def build(source,seed):
     original=json.loads(source.read_text(encoding='utf-8'))
     levels=copy.deepcopy(original['levels'][:10])
     for level in levels:
+        if level['id'] >= 4:
+            level['moves'] = level['par']
         level['design'].update(measure(level))
     signatures={author.geometry_signature(l) for l in levels}
+    # TT campaign: only the first three teaching levels retain a move allowance.
     author.CHAPTERS=PROFILES
     for chapter in range(1,10):
         spec=PROFILES[chapter]
@@ -98,7 +103,7 @@ def build(source,seed):
             print(f"L{number}: arrows={count}, moves={level['par']}+{spec[9]}, gap={level['design']['orderGap']}, "
                   f"random clear={level['design']['randomClearRate']:.1%}, score={level['design']['structureScore']}",flush=True)
     for before,after in zip(original['levels'][:10],levels[:10]):
-        for key in ('a','w','h','par','moves','solution','guidedChains'):
+        for key in ('a','w','h','par','solution','guidedChains') + (('moves',) if before['id'] < 4 else ()):
             assert before.get(key)==after.get(key), (before['id'],key)
     for level in levels:
         validate(level)
@@ -107,8 +112,8 @@ def build(source,seed):
 
 def report(levels,seed):
     lines=['# Hue Relay：100 关难度调整', '',
-        '前 10 关保留布局、标准解、教学和步数。道具已改为全局持久库存，首次启动每种赠送 3 个，跨关卡和重试不重置；初始数量及广告奖励数量统一配置于 Assets/HueRelay/Resources/HueRelay/Data/PowerUps.asset。关卡数据不再配置道具配额。', '',
-        '第 11 关起重选三色布局，更早增加箭头数、阻挡依赖及顺序选择代价；31 关起步数上限等于已证明的标准最短解。所有关卡可不使用道具通关，箭头上限维持 30。', '',
+        '前 10 关保留布局、标准解和教学，前 3 关保留教学步数。道具为全局持久库存，初始数量及广告奖励数量统一配置于 Assets/HueRelay/Resources/HueRelay/Data/PowerUps.asset。关卡数据不配置道具配额。', '',
+        '第 4 关起步数上限等于已验证标准解的步数，并且少于箭头数量，逐个消除会步数不足。第 11 关起重选三色布局，增加阻挡依赖及顺序选择代价。所有关卡可不使用道具通关，箭头上限维持 30。', '',
         '难度字段是关卡进度标尺，不是玩家通关率。下表的随机通关率是离线合法随机点击、等待连锁完成后的采样结果，不代表真人或并行点击通关率；“三天”目标仍须用玩家试玩、每关耗时和重试数据校准。', '',
         '| 关卡 | 棋盘 | 箭头 | 最短步数 | 上限 | 依赖深度 | 顺序损失 | 随机通关率（64 次；前十128次） |',
         '|---|---|---|---|---|---|---|---|']

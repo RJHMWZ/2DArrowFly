@@ -7,11 +7,13 @@ namespace HueRelay
         private float idleMoveSeconds;
         private bool idleMoveGuide;
         private int moveGuideInputFrame = -1;
+        private int moveGuideHapticCycle = -1;
 
         private void ResetIdleMoveGuide()
         {
             idleMoveSeconds = 0;
             idleMoveGuide = false;
+            moveGuideHapticCycle = -1;
             if (sceneView) sceneView.SetMoveNudge(false, 0);
         }
 
@@ -33,6 +35,16 @@ namespace HueRelay
             if (guide && !idleMoveGuide) TrackGameEvent("idle_move_nudge");
             idleMoveGuide = guide;
             sceneView.SetMoveNudge(guide, idleMoveSeconds - 5);
+            if (guide)
+            {
+                // One short pulse per shake, never one request per frame or a catch-up burst.
+                int cycle = Mathf.FloorToInt((idleMoveSeconds - 5) / HueView.MoveNudgeInterval);
+                if (cycle != moveGuideHapticCycle)
+                {
+                    moveGuideHapticCycle = cycle;
+                    HueAudio.VibrateShort();
+                }
+            }
         }
     }
 }

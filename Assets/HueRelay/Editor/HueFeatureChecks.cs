@@ -55,15 +55,33 @@ namespace HueRelay.Editor
             var guide = typeof(HueGame).GetField("idleMoveGuide", Private);
             var originalScale = view.extraMovesButton.transform.localScale;
             var originalRotation = view.extraMovesButton.transform.localRotation;
+            var moveRect = (RectTransform)view.extraMovesButton.transform;
+            Require(moveRect.pivot == new Vector2(.5f, .5f), "Move button must rotate around its center.");
+            Vector3 originalCenter = moveRect.TransformPoint(moveRect.rect.center);
+            var hapticCycle = typeof(HueGame).GetField("moveGuideHapticCycle", Private);
             for (int i = 0; i < 19; i++) tick.Invoke(game, new object[] { true, false, .25f });
             Require(!(bool)guide.GetValue(game), "Guide started before five seconds.");
             tick.Invoke(game, new object[] { true, false, .25f });
             tick.Invoke(game, new object[] { true, false, .25f });
             Require((bool)guide.GetValue(game) && view.extraMovesButton.transform.localScale.x > originalScale.x,
                 "Move guide did not animate after five seconds.");
+            Require(Vector3.Distance(originalCenter, moveRect.TransformPoint(moveRect.rect.center)) < .001f,
+                "Move animation displaced its center.");
+            Require((int)hapticCycle.GetValue(game) == 0, "First shake did not schedule its haptic pulse.");
+            var feedback = view.extraMovesButton.GetComponent<HueButtonFeedback>();
+            if (feedback)
+            {
+                var animatedScale = moveRect.localScale;
+                typeof(HueButtonFeedback).GetMethod("Update", Private).Invoke(feedback, null);
+                Require(moveRect.localScale == animatedScale, "Press feedback overwrote the idle animation.");
+            }
+            tick.Invoke(game, new object[] { true, false, 1.6f });
+            Require((int)hapticCycle.GetValue(game) == 1, "Repeated shake did not schedule its next haptic pulse.");
             tick.Invoke(game, new object[] { true, true, .01f });
             Require(!(bool)guide.GetValue(game) && view.extraMovesButton.transform.localScale == originalScale
                 && view.extraMovesButton.transform.localRotation == originalRotation, "Input did not restore the button.");
+            Require((int)hapticCycle.GetValue(game) == -1 && (!feedback || !feedback.ExternalAnimation),
+                "Input did not release idle haptics/press feedback.");
             for (int i = 0; i < 30; i++) tick.Invoke(game, new object[] { false, false, .25f });
             Require(!(bool)guide.GetValue(game), "Unavailable gameplay accumulated idle time.");
             AnalyticsChecks();

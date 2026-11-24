@@ -160,6 +160,8 @@ namespace HueRelay
         private bool moveNudging;
         private Vector3 moveRestScale;
         private Quaternion moveRestRotation;
+        private HueButtonFeedback moveFeedback;
+        internal const float MoveNudgeInterval = 1.8f;
 
         public void SetMoveNudge(bool active, float elapsed)
         {
@@ -167,16 +169,23 @@ namespace HueRelay
             var target = extraMovesButton.transform;
             if (!active)
             {
-                if (moveNudging) { target.localScale = moveRestScale; target.localRotation = moveRestRotation; }
+                if (moveNudging)
+                {
+                    target.localScale = moveRestScale;
+                    target.localRotation = moveRestRotation;
+                    if (moveFeedback) moveFeedback.ExternalAnimation = false;
+                }
                 moveNudging = false;
                 return;
             }
             if (!moveNudging)
             {
                 moveRestScale = target.localScale; moveRestRotation = target.localRotation;
+                moveFeedback = extraMovesButton.GetComponent<HueButtonFeedback>();
+                if (moveFeedback) moveFeedback.ExternalAnimation = true;
                 moveNudging = true;
             }
-            float phase = Mathf.Repeat(elapsed, 1.8f);
+            float phase = Mathf.Repeat(elapsed, MoveNudgeInterval);
             float envelope = phase < .8f ? Mathf.Sin(phase / .8f * Mathf.PI) : 0;
             target.localScale = moveRestScale * (1 + .06f * envelope);
             target.localRotation = moveRestRotation * Quaternion.Euler(0, 0, 4 * envelope * Mathf.Sin(phase * 24));
@@ -519,7 +528,7 @@ namespace HueRelay
 
         private static void PlacePowerUp(Button button, int index, float width)
         {
-            SetBox((RectTransform)button.transform, new Rect((index + .5f) * width / 3 - 42, 2, 84, 72));
+            PlaceCenter((RectTransform)button.transform, new Vector2((index + .5f) * width / 3, 38), new Vector2(84, 72));
         }
 
         public void HideErasePresentation()

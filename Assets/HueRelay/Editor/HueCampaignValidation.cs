@@ -31,8 +31,8 @@ namespace HueRelay.Editor
                     Require(!string.IsNullOrEmpty(level.title) && level.title.All(c => c < 128), prefix + "Title must be English.");
                     Require(level.w > 0 && level.h > 0 && level.a.Length >= 4 && level.a.Length <= 30, prefix + "Invalid board size.");
                     Require(level.par > 0 && level.moves >= level.par && level.solution.Length == level.par, prefix + "Invalid move budget/route.");
-                    Require(index < 10 || level.moves - level.par == (index < 20 ? 2 : index < 30 ? 1 : 0),
-                        prefix + "Rebalanced move allowance is incorrect.");
+                    Require(index < 3 || (level.moves == level.par && level.moves < level.a.Length),
+                        prefix + "From level four, the budget must require chains and match the verified route.");
                     var occupied = new HashSet<Vector2>();
                     foreach (var arrow in level.a)
                     {

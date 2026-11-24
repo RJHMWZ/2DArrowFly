@@ -15,6 +15,7 @@ namespace HueRelay
         private Button button;
         private CanvasGroup opacity;
         private bool? lastInteractable;
+        public bool ExternalAnimation { get; set; }
 
         private void OnEnable()
         {
@@ -55,6 +56,7 @@ namespace HueRelay
                 opacity.alpha = interactable ? 1 : .4f;
                 lastInteractable = interactable;
             }
+            if (ExternalAnimation) return;
             float t = (Time.unscaledTime - started) / duration;
             if (t > 1 && transform.localScale.x == target)
                 return;
@@ -64,6 +66,7 @@ namespace HueRelay
 
         private void OnDisable()
         {
+            ExternalAnimation = false;
             transform.localScale = Vector3.one;
         }
     }
