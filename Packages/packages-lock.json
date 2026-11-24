@@ -1,7 +1,7 @@
 {
   "dependencies": {
     "com.coplaydev.unity-mcp": {
-      "version": "file:C:/Users/yangjinsheng/Desktop/unity-mcp-main/unity-mcp-main/MCPForUnity",
+      "version": "file:C:/Users/ivy/Desktop/UnityPackage/unity-mcp-main/MCPForUnity",
       "depth": 0,
       "source": "local",
       "dependencies": {
