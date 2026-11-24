@@ -243,9 +243,8 @@ namespace HueRelay.Editor
                     Field("root").SetValue(game, root);
                     game.enabled = true;
                     game.OpenHelp();
-                    if (game.TutorialStepIndex != 0)
-                        throw new Exception("Help button did not open the tutorial in a legacy scene.");
-                    game.EndTutorial();
+                    if (game.TutorialStepIndex >= 0)
+                        throw new Exception("Legacy Help callback replayed an already-seen tutorial.");
                     HueCampaignValidation.CheckRuntime(game, currentView);
                     campaignChecked = true;
                 }

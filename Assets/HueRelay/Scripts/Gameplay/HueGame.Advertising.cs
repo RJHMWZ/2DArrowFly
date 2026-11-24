@@ -65,7 +65,7 @@ namespace HueRelay
         private void ShowResultAfterAd(Action continued)
         {
             if (adBreakActive) return;
-            if (!Ads || !Over || tut >= 0 || !HasCompletedTutorial) { continued(); return; }
+            if (!Ads || !Over || tut >= 0 || !HasSeenTutorial) { continued(); return; }
             adBreakActive = true; adBreakStarted = Time.unscaledTime;
             int token = ++adNavigation;
             Ads.TryInterstitial(new HueAdBreakContext { won = Won, beforeResult = true,

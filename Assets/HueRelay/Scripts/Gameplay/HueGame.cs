@@ -389,7 +389,7 @@ namespace HueRelay
                 if (raycaster) raycaster.enabled = true;
             }
             StartLevel(ResumeLevelIndex);
-            if ((UIManager.Instance == null || UIManager.Instance.showTutorial) && !HasCompletedTutorial)
+            if (!HasSeenTutorial)
             {
                 resumeEndlessAfterTutorial = CampaignCompleted;
                 StartTutorial();
@@ -762,7 +762,7 @@ namespace HueRelay
         /// <summary>场景中帮助按钮的持久化事件入口。</summary>
         public void OpenHelp()
         {
-            if (enabled && root && P != null && LevelCount > 0 && !generating && tut < 0 && !adBreakActive && !revivePending)
+            if (!HasSeenTutorial && enabled && root && P != null && LevelCount > 0 && !generating && tut < 0 && !adBreakActive && !revivePending)
                 StartTutorial();
         }
 

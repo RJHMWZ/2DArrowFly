@@ -38,7 +38,9 @@ public static class HuePausePresentationChecks
                 float h=Mathf.Max(1,view.PowerUpTop(size.y,k,0)-view.powerUpBoardGap*k-y);
                 view.ApplyLayout(size.x,size.y,k,(size.x-appW)/2,appW,0,0,y,h,size.x/2-100,y+h/2-120,200,240,false,2);
                 view.SetHud("120",HueGame.Ink,1,0,"Best 360","Level 1","Moves 2/6",HueGame.Ink,.5f,false,0,2,4,false);
-                pause.Show(game,true); Canvas.ForceUpdateCanvases(); pause.Layout(); Canvas.ForceUpdateCanvases();
+                pause.Show(game); Canvas.ForceUpdateCanvases(); pause.Layout(); Canvas.ForceUpdateCanvases();
+                if(pause.card.Find("TutorialButton") || pause.card.GetComponentsInChildren<Button>().Length!=4 || pause.card.rect.height!=322)
+                    throw new Exception("Pause must contain only Continue, Retry, Settings and Home in a compact card.");
                 if ((pause.levelLabel && pause.levelLabel.gameObject.activeSelf) || !pause.settingsButton.gameObject.activeSelf)
                     throw new Exception("Pause must hide level and show Settings.");
                 var canvasRect=view.canvas.transform as RectTransform;
@@ -75,7 +77,7 @@ public static class HuePausePresentationChecks
                 target=BuildTarget.WebGL,group=BuildTargetGroup.WebGL,options=ScriptCompilationOptions.None
             },Path.GetFullPath("Temp/PauseSettingsPlayer"));
             if(compiled.assemblies==null || compiled.assemblies.Count==0) throw new Exception("WebGL Player compilation failed.");
-            File.WriteAllText("Logs/PauseMenu/presentation.txt","PASS: no level label; five-button pause and shared Settings rendered in tall/short portrait and landscape (6 cases); both cards stay inside viewport; menu content hidden over pause; WebGL Player C# compilation.\n");
+            File.WriteAllText("Logs/PauseMenu/presentation.txt","PASS: no Tutorial button or level label; four-button pause and shared Settings rendered in tall/short portrait and landscape (6 cases); both cards stay inside viewport; menu content hidden over pause; WebGL Player C# compilation.\n");
             EditorApplication.Exit(0);
         }
         catch(Exception e){Debug.LogException(e);EditorApplication.Exit(1);}

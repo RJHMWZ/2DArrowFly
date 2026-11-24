@@ -64,6 +64,7 @@ namespace HueRelay
             {
                 DebugJumpToLevel(LevelIndex + 1);
                 PlayerPrefs.DeleteKey(tutorialSeenKey);
+                PlayerPrefs.DeleteKey(tutorialSeenKey + "_started");
                 StartTutorial();
             }
             else

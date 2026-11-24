@@ -51,7 +51,7 @@ namespace HueRelay.Editor
                     && !view.canvas.GetComponent<GraphicRaycaster>().enabled,
                     "Pause Settings exposed the menu or allowed game-canvas input.");
                 pause.continueButton.onClick.Invoke(); pause.retryButton.onClick.Invoke();
-                pause.tutorialButton.onClick.Invoke(); pause.homeButton.onClick.Invoke();
+                pause.homeButton.onClick.Invoke();
                 Require(game.IsPaused && menu.IsPauseSettingsOpen && game.Mask==mask && game.Taps==taps,
                     "Underlying pause callbacks ran while Settings was open.");
                 bool sound=HueAudio.SoundEnabled, vibration=HueAudio.VibrationEnabled;
@@ -101,11 +101,9 @@ namespace HueRelay.Editor
                     return false;
                 }
                 game.OpenPause();
-                Require(pause.tutorialButton.interactable,"Tutorial was not enabled for an idle board.");
-                pause.tutorialButton.onClick.Invoke();
-                Require(!game.IsPaused && game.TutorialStepIndex==0,"Pause tutorial did not start.");
-                game.OpenPause();
-                Require(!pause.tutorialButton.interactable,"Tutorial can recursively reopen itself.");
+                Require(!pause.card.Find("TutorialButton"),"Removed Tutorial button remains in the authored scene.");
+                Require(pause.card.GetComponentsInChildren<Button>().Length==4 && pause.card.rect.height==322,
+                    "Pause menu must contain four buttons in a compact card.");
                 pause.retryButton.onClick.Invoke();
                 Require(!game.IsPaused && game.TutorialStepIndex<0 && game.Taps==0 && game.Score==0 && game.Mask==game.P.Full,
                     "Pause retry did not restore the campaign board.");
@@ -116,7 +114,7 @@ namespace HueRelay.Editor
                 Require(!menu.IsVisible && !game.IsPaused && view.canvas.enabled,"Cannot play after Pause Home.");
                 phase=4;
                 Directory.CreateDirectory("Logs/PauseMenu");
-                File.WriteAllText("Logs/PauseMenu/checks.txt","PASS: no level label; five buttons including Settings; shared settings overlay over paused game without menu content; underlying actions blocked; sound/vibration toggle and persist; closing Settings returns to pause; repeated opens restore menu content; full pause/settings time excluded; Continue, tutorial, retry, Home and re-entry work.\n");
+                File.WriteAllText("Logs/PauseMenu/checks.txt","PASS: no Tutorial button or level label; compact four-button card; shared settings overlay over paused game without menu content; underlying actions blocked; sound/vibration toggle and persist; closing Settings returns to pause; repeated opens restore menu content; full pause/settings time excluded; Continue, Retry, Home and re-entry work.\n");
                 return true;
             }
             return false;

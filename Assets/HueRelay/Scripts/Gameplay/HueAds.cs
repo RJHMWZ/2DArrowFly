@@ -73,7 +73,7 @@ namespace HueRelay
                 return;
             }
             if (!policy.adsEnabled || !focused || paused || !hostVisible || game.TutorialStepIndex >= 0
-                || !game.HasCompletedTutorial || game.IsPaused) return;
+                || !game.HasSeenTutorial || game.IsPaused) return;
             Prepare(HueAdFormat.Rewarded, policy.RewardedConfigured);
             Prepare(HueAdFormat.Interstitial, policy.InterstitialConfigured);
         }
@@ -114,7 +114,7 @@ namespace HueRelay
             // Any genuine opt-in, including no-fill/cancellation, protects against a following interstitial.
             if (blocked != "another_ad_active") pacing.RecordRewardedActivity(Now);
             if (blocked == null && (!game.IsPowerUpRefillOpen || !game.IsPowerUpAdPending
-                || game.TutorialStepIndex >= 0 || !game.HasCompletedTutorial)) blocked = "not_an_opt_in_refill";
+                || game.TutorialStepIndex >= 0 || !game.HasSeenTutorial)) blocked = "not_an_opt_in_refill";
             if (blocked == null && !backend.IsReady(HueAdFormat.Rewarded)) blocked = "not_loaded";
             if (blocked != null) { Trace("Rewarded:" + kind + ":skip:" + blocked); completed(false); return; }
             Trace("Rewarded:" + kind + ":opt_in");
@@ -135,7 +135,7 @@ namespace HueRelay
             if (backend == null || pacing == null || !isActiveAndEnabled) { completed(false); return; }
             string blocked = pacing.RewardedBlock(Now, pending);
             if (blocked == null && (!game.IsReviveAdPending || !game.Over || game.Won || !game.ModalVisible
-                || game.TutorialStepIndex >= 0 || !game.HasCompletedTutorial)) blocked = "not_a_revive_opt_in";
+                || game.TutorialStepIndex >= 0 || !game.HasSeenTutorial)) blocked = "not_a_revive_opt_in";
             if (blocked != "another_ad_active" && game.IsReviveAdPending) pacing.RecordRewardedActivity(Now);
             if (blocked == null && !backend.IsReady(HueAdFormat.Rewarded)) blocked = "not_loaded";
             if (blocked != null) { Trace("Rewarded:revive:skip:" + blocked); completed(false); return; }

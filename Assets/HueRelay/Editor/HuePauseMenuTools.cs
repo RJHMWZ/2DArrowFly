@@ -54,7 +54,7 @@ namespace HueRelay.Editor
             var pause = overlay.gameObject.AddComponent<HuePauseMenu>();
             pause.card = Node("PauseCard",overlay);
             pause.card.anchorMin = pause.card.anchorMax = pause.card.pivot = new Vector2(.5f,.5f);
-            pause.card.sizeDelta = new Vector2(326,378);
+            pause.card.sizeDelta = new Vector2(326,322);
             var source = view.movesChip;
             var card = pause.card.gameObject.AddComponent<Image>();
             card.sprite = source.sprite; card.type = source.type;
@@ -62,10 +62,9 @@ namespace HueRelay.Editor
             card.color = Color.white; card.raycastTarget = true;
             Label("Title",pause.card,view.resultTitle,"Paused",24,HueGame.Ink,24,24,278,38);
             pause.continueButton = Button("ContinueButton",pause.card,view.resultPrimary,"Continue",82);
-            pause.tutorialButton = Button("TutorialButton",pause.card,view.resultSecondary,"Tutorial",138);
-            pause.retryButton = Button("RetryButton",pause.card,view.resultSecondary,"Retry",194);
-            pause.settingsButton = Button("SettingsButton",pause.card,view.resultSecondary,"Settings",250);
-            pause.homeButton = Button("HomeButton",pause.card,view.resultSecondary,"Home",306);
+            pause.retryButton = Button("RetryButton",pause.card,view.resultSecondary,"Retry",138);
+            pause.settingsButton = Button("SettingsButton",pause.card,view.resultSecondary,"Settings",194);
+            pause.homeButton = Button("HomeButton",pause.card,view.resultSecondary,"Home",250);
             pause.Hide();
             EditorSceneManager.MarkSceneDirty(game.gameObject.scene);
         }

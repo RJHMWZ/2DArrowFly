@@ -8,7 +8,7 @@ namespace HueRelay
     {
         public RectTransform card;
         public Text levelLabel;
-        public Button continueButton, tutorialButton, retryButton, settingsButton, homeButton;
+        public Button continueButton, retryButton, settingsButton, homeButton;
         private HueGame game;
 
         public bool ResolveBindings()
@@ -17,39 +17,43 @@ namespace HueRelay
             if (!card) return false;
             if (!levelLabel) levelLabel = card.Find("LevelLabel")?.GetComponent<Text>();
             if (!continueButton) continueButton = card.Find("ContinueButton")?.GetComponent<Button>();
-            if (!tutorialButton) tutorialButton = card.Find("TutorialButton")?.GetComponent<Button>();
+            // An already-open older scene may still contain the removed entry.
+            var oldTutorial = card.Find("TutorialButton");
+            if (oldTutorial) oldTutorial.gameObject.SetActive(false);
             if (!retryButton) retryButton = card.Find("RetryButton")?.GetComponent<Button>();
             if (!homeButton) homeButton = card.Find("HomeButton")?.GetComponent<Button>();
             if (levelLabel) levelLabel.gameObject.SetActive(false);
             if (!settingsButton) settingsButton = card.Find("SettingsButton")?.GetComponent<Button>();
             // Recover an already-open scene after script reload. Authored scenes
             // contain this button; only older scenes need the one-time upgrade.
-            if (!settingsButton && homeButton && continueButton && tutorialButton && retryButton)
+            if (!settingsButton && homeButton && continueButton && retryButton)
             {
                 settingsButton = Instantiate(homeButton, card, false);
                 settingsButton.name = "SettingsButton";
                 settingsButton.onClick = new Button.ButtonClickedEvent();
                 settingsButton.GetComponentInChildren<Text>(true).text = "Settings";
-                var buttons = new[] { continueButton, tutorialButton, retryButton, settingsButton, homeButton };
-                for (int i = 0; i < buttons.Length; i++)
-                {
-                    var rect = (RectTransform)buttons[i].transform;
-                    rect.anchoredPosition = new Vector2(rect.anchoredPosition.x, -(82 + i * 56));
-                }
             }
-            return continueButton && tutorialButton && retryButton && settingsButton && homeButton;
+            if (!(continueButton && retryButton && settingsButton && homeButton)) return false;
+            card.SetSizeWithCurrentAnchors(RectTransform.Axis.Vertical, 322);
+            Place(continueButton, 82); Place(retryButton, 138);
+            Place(settingsButton, 194); Place(homeButton, 250);
+            return true;
         }
 
-        public void Show(HueGame owner, bool canTeach)
+        private static void Place(Button button, float y)
+        {
+            var rect = (RectTransform)button.transform;
+            rect.anchoredPosition = new Vector2(rect.anchoredPosition.x, -y);
+        }
+
+        public void Show(HueGame owner)
         {
             if (!ResolveBindings()) return;
             game = owner;
             Bind(continueButton, game.ResumePause);
-            Bind(tutorialButton, game.TutorialFromPause);
             Bind(retryButton, game.RetryFromPause);
             Bind(settingsButton, game.OpenSettingsFromPause);
             Bind(homeButton, game.ReturnHome);
-            tutorialButton.interactable = canTeach;
             gameObject.SetActive(true);
             transform.SetAsLastSibling();
             Layout();
@@ -68,7 +72,7 @@ namespace HueRelay
             if (!card) return;
             var parent = transform as RectTransform;
             float scale = Mathf.Max(.1f, Mathf.Min(1, Mathf.Min((parent.rect.width - 32) / 326,
-                (parent.rect.height - 32) / 378)));
+                (parent.rect.height - 32) / 322)));
             card.localScale = Vector3.one * scale;
         }
     }

@@ -10,6 +10,7 @@ namespace HueRelay
         public int ResumeLevelIndex => campaignProgress != null ? campaignProgress.NextLevelIndex : LevelIndex;
         public bool CampaignCompleted => campaignProgress != null && campaignProgress.Completed;
         public bool HasCompletedTutorial => PlayerPrefs.GetInt(tutorialSeenKey, 0) != 0;
+        public bool HasSeenTutorial => HasCompletedTutorial || PlayerPrefs.GetInt(tutorialSeenKey + "_started", 0) != 0;
         public string ResumeButtonLabel => CampaignCompleted ? "Endless Mode" : "Level " + (ResumeLevelIndex + 1);
 
         private void LoadCampaignProgress(string campaignId)

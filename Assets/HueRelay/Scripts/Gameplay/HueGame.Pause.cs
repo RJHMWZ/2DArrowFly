@@ -18,7 +18,7 @@ namespace HueRelay
             if (!pauseMenu || !pauseMenu.ResolveBindings()) return;
             pauseStarted = Time.unscaledTime;
             IsPaused = true;
-            pauseMenu.Show(this, tut < 0 && Idle);
+            pauseMenu.Show(this);
         }
 
         public void ResumePause()
@@ -36,13 +36,6 @@ namespace HueRelay
             ResumePause();
             if (tut >= 0) EndTutorial();
             Retry();
-        }
-
-        public void TutorialFromPause()
-        {
-            if (!IsPaused || tut >= 0 || !Idle || (mainMenu && mainMenu.IsPauseSettingsOpen)) return;
-            ResumePause();
-            OpenHelp();
         }
 
         public void OpenSettingsFromPause()

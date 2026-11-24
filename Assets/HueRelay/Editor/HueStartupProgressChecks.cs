@@ -22,6 +22,7 @@ namespace HueRelay.Editor
         {
             PlayerPrefs.DeleteKey(ProgressKey);
             PlayerPrefs.DeleteKey("cc_seen_validation");
+            PlayerPrefs.DeleteKey("cc_seen_validation_started");
             PlayerPrefs.Save();
             var manager=UnityEngine.Object.FindObjectOfType<UIManager>();
             manager.startingLevel=1; manager.showTutorial=true;
@@ -36,6 +37,8 @@ namespace HueRelay.Editor
                     "Fresh startup must immediately open full tutorial, not menu or the campaign chain guide.");
                 Require(game.P.L.w==9 && game.P.L.h==12 && !game.HasCompletedTutorial,
                     "First startup did not use the question-mark tutorial board.");
+                Require(game.HasSeenTutorial && PlayerPrefs.GetInt("cc_seen_validation_started")==1,
+                    "Tutorial must persist its shown marker before completion.");
                 hints=game.HintsRemaining; erasers=game.ErasersRemaining; extra=game.ExtraMovesRemaining;
                 typeof(HueGame).GetField("built",Flags).SetValue(game,
                     (float)typeof(HueGame).GetProperty("GameTime",Flags).GetValue(game)-10);
@@ -101,9 +104,20 @@ namespace HueRelay.Editor
             game.StartLevel(0); Finish(game,true);
             Require(PlayerPrefs.GetInt(ProgressKey)==4,"Replaying an earlier level regressed progress.");
             game.BeginFromMenu(); game.OpenHelp();
-            Require(game.TutorialStepIndex==0,"Manual tutorial stopped working after first-run completion.");
-            game.EndTutorial();
-            Require(game.LevelIndex==4 && game.ResumeLevelIndex==4,"Manual tutorial did not restore the current level.");
+            Require(!game.IsTutorial,"Tutorial replayed after first-run completion.");
+            Require(game.LevelIndex==4 && game.ResumeLevelIndex==4,"Re-entry changed the current level.");
+            // Existing completion-only saves and interrupted first demonstrations both skip replay.
+            int shown = PlayerPrefs.GetInt("cc_seen_validation_started");
+            PlayerPrefs.DeleteKey("cc_seen_validation_started");
+            Require(game.HasSeenTutorial,"An existing completion-only save lost its tutorial history.");
+            PlayerPrefs.SetInt("cc_seen_validation_started",1);
+            PlayerPrefs.DeleteKey("cc_seen_validation");
+            game.BeginFromMenu(); game.OpenHelp();
+            Require(game.HasSeenTutorial && !game.IsTutorial && !game.HasCompletedTutorial,
+                "An interrupted tutorial must not replay through menu entry or legacy Help.");
+            PlayerPrefs.SetInt("cc_seen_validation",1);
+            PlayerPrefs.SetInt("cc_seen_validation_started",shown);
+            PlayerPrefs.Save();
             const string boundsKey="cc_campaign_bounds_validation";
             PlayerPrefs.DeleteKey(boundsKey);
             var bounds=new HueCampaignProgress(boundsKey,100,0); bounds.Complete(99); bounds.Complete(0);
@@ -111,7 +125,7 @@ namespace HueRelay.Editor
                 "Campaign completion must use a bounded sentinel, not expose level 101.");
             PlayerPrefs.DeleteKey(boundsKey); PlayerPrefs.Save();
             Directory.CreateDirectory("Logs/Progress");
-            File.WriteAllText("Logs/Progress/checks.txt","PASS: fresh startup goes directly into six-step full tutorial; arrow taps and anywhere taps on card/background/board complete it without Next/Play buttons or same-frame skipping; first campaign level restored; inventory untouched; victory saved before result/buttons; Home label and Play use next level; failure/replay do not change/regress progress; real scene reload resumes saved level directly; tutorial is not repeated but remains manually available; level 100 bounded completion sentinel.\n");
+            File.WriteAllText("Logs/Progress/checks.txt","PASS: fresh startup goes directly into six-step full tutorial; arrow taps and anywhere taps on card/background/board complete it without Next/Play buttons or same-frame skipping; first campaign level restored; inventory untouched; victory saved before result/buttons; Home label and Play use next level; failure/replay do not change/regress progress; real scene reload resumes saved level directly; tutorial is not repeated and has no manual replay entry; level 100 bounded completion sentinel.\n");
             phase=3; return true;
         }
         public static bool WaitingForReload(HueGame game)

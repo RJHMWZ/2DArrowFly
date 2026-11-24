@@ -108,8 +108,15 @@ namespace HueRelay
         /// </summary>
         public void StartTutorial()
         {
-            if (!enabled || !root || P == null || LevelCount == 0 || !Idle || refillOpen)
+            if (!enabled || !root || P == null || LevelCount == 0 || !Idle || refillOpen || tut >= 0)
                 return;
+#if !UNITY_EDITOR
+            if (HasSeenTutorial) return;
+#endif
+            // Save before presentation so an interrupted first run cannot replay it.
+            // Editor debug commands may still explicitly replay the tutorial for testing.
+            PlayerPrefs.SetInt(tutorialSeenKey + "_started", 1);
+            PlayerPrefs.Save();
             TrackGameEvent("tutorial_start");
             ResetIdleMoveGuide();
             CancelErase();
