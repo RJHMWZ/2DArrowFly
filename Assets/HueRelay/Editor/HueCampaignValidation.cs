@@ -130,8 +130,9 @@ namespace HueRelay.Editor
                 Require(game.Limit == level.moves && game.IsLastCampaignLevel == (index == levels.Length - 1), "Runtime level configuration: " + level.id);
                 render.Invoke(game, null);
                 game.Hint();
-                int expectedHints = level.guidedChains ? 3 : 2;
-                Require(game.HintsRemaining == expectedHints && (int)typeof(HueGame).GetField("hintId", Flags).GetValue(game) == level.solution[0], "Hint ignored authored route: " + level.id);
+                int expectedHints = 3;
+                Require(game.HintsRemaining == expectedHints && !game.CanUndo,
+                    "A fresh board must not spend an undo or enable it without history: " + level.id);
                 game.Retry();
                 Require(game.Mask == game.P.Full && game.Limit == level.moves && game.HintsRemaining == expectedHints
                     && game.ErasersRemaining == 3 && game.ExtraMovesRemaining == 3, "Retry reset global inventory: " + level.id);

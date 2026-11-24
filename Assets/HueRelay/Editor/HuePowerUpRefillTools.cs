@@ -29,13 +29,13 @@ namespace HueRelay.Editor
             card.sprite = view.movesChip.sprite; card.type = view.movesChip.type;
             card.pixelsPerUnitMultiplier = view.movesChip.pixelsPerUnitMultiplier;
             card.color = Color.white; card.raycastTarget = true;
-            panel.title = Label("Title", panel.card, view.resultTitle.font, "Out of Hints",24,HueGame.Ink,24,24,278,38);
+            panel.title = Label("Title", panel.card, view.resultTitle.font, "Out of Undos",24,HueGame.Ink,24,24,278,38);
             panel.itemIcon = Node("ItemIcon", panel.card).gameObject.AddComponent<Image>();
             panel.itemIcon.sprite = view.hintButton.transform.Find("Icon").GetComponent<Image>().sprite;
             panel.itemIcon.preserveAspect = true; panel.itemIcon.raycastTarget = false;
             Box(panel.itemIcon.rectTransform,131,78,64,64);
             panel.amountLabel = Label("Amount", panel.card, view.resultTitle.font, "+1",28,HueGame.Blue,24,156,278,34);
-            panel.message = Label("Message", panel.card, view.resultTitle.font, "Watch a video to get 1 hint.",13,HueGame.Mute,24,196,278,32);
+            panel.message = Label("Message", panel.card, view.resultTitle.font, "Watch a video to get 1 undo.",13,HueGame.Mute,24,196,278,32);
             panel.watchButton = Button("WatchAdButton", panel.card, view.resultPrimary, "Watch Ad",234,64);
             Box((RectTransform)panel.watchButton.transform,16,234,294,64);
             panel.watchButton.GetComponentInChildren<Text>(true).fontSize = 24;

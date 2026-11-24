@@ -67,7 +67,7 @@ namespace HueRelay.Editor
             using (new EditorGUI.DisabledScope(blocked))
             {
                 Heading("道具库存（停止和 Play 模式均可修改）");
-                hints = EditorGUILayout.IntField("提示", hints);
+                hints = EditorGUILayout.IntField("撤回", hints);
                 erasers = EditorGUILayout.IntField("擦除", erasers);
                 extraMoves = EditorGUILayout.IntField("加步道具", extraMoves);
                 if (GUILayout.Button("应用自定义数量并保存")) Run(() => ApplyInventory(hints, erasers, extraMoves));

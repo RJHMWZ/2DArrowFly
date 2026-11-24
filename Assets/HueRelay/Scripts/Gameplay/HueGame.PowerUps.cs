@@ -43,10 +43,10 @@ namespace HueRelay
         // settling before Finish and the entire result-panel lifetime.
         private bool PowerUpsReady => !IsPaused && !IsRuntimeDebugOpen && !refillOpen && !Over && !sheetVisible && Taps < Limit
             && Mask != 0 && !generating && tut < 0 && !UsesChainGuide && Idle;
-        public bool CanHint => PowerUpsReady && !IsChoosingErase && hints > 0;
+        public bool CanHint => CanUndo;
         public bool CanErase => PowerUpsReady && eraseUses > 0;
         public bool CanAddMoves => PowerUpsReady && !IsChoosingErase && extraMoveUses > 0;
-        private bool CanRequestHint => PowerUpsReady && !IsChoosingErase;
+        private bool CanRequestHint => PowerUpsReady && !IsChoosingErase && (hints == 0 || undoSteps.Count > 0);
         private bool CanRequestErase => PowerUpsReady;
         private bool CanRequestExtraMoves => PowerUpsReady && !IsChoosingErase;
         public int HintsRemaining => hints;

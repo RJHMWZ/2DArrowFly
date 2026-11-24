@@ -15820,7 +15820,7 @@ MonoBehaviour:
     m_HorizontalOverflow: 1
     m_VerticalOverflow: 1
     m_LineSpacing: 1.35
-  m_Text: Hint
+  m_Text: Undo
 --- !u!222 &8100000005
 CanvasRenderer:
   m_ObjectHideFlags: 0

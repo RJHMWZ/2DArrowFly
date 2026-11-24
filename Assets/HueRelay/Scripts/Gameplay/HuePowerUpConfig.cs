@@ -2,13 +2,14 @@ using UnityEngine;
 
 namespace HueRelay
 {
+    // Keep the legacy first-slot name/value so existing inventories and ad callbacks survive.
     public enum HuePowerUpKind { Hint, Eraser, ExtraMoves }
 
     [CreateAssetMenu(menuName = "Hue Relay/Power Up Config", fileName = "PowerUps")]
     public sealed class HuePowerUpConfig : ScriptableObject
     {
         [Header("First launch gift (once per local save)")]
-        [Min(0)] public int initialHints = 0;
+        [InspectorName("Initial Undos"), Min(0)] public int initialHints = 0;
         [Min(0)] public int initialErasers = 0;
         [Min(0)] public int initialExtraMoves = 0;
         [Header("Reward for one completed ad")]

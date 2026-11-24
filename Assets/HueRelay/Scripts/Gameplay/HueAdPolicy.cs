@@ -13,10 +13,10 @@ namespace HueRelay
         public string rewardedAdUnitId = "";
         [HideInInspector] public string interstitialAdUnitId = ""; // Unused legacy placement.
 
-        [Header("Result rewarded video: one opportunity per completed group of wins; no time cooldown")]
-        [InspectorName("Wins Between Result Videos"), Min(1)] public int winsBetweenInterstitials = 3;
+        [Header("Result rewarded video: every win from campaign level 3; no time cooldown")]
+        [InspectorName("Wins Between Result Videos"), Min(1)] public int winsBetweenInterstitials = 1;
+        [InspectorName("Campaign Levels Without Result Videos"), Min(0)] public int protectedCampaignLevels = 2;
         // Preserve old serialized fields without letting them reintroduce result-video time gates.
-        [HideInInspector] public int protectedCampaignLevels;
         [HideInInspector] public float firstInterstitialAfterSeconds;
         [HideInInspector] public float interstitialIntervalSeconds;
         [HideInInspector] public float rewardedGraceSeconds;

@@ -13,7 +13,7 @@ namespace HueRelay
 
         public void Show(HueGame game, HuePowerUpKind kind, Sprite sprite, Color tint, int amount)
         {
-            string name = kind == HuePowerUpKind.Hint ? "Hints" : kind == HuePowerUpKind.Eraser ? "Erasers" : "Extra Moves";
+            string name = kind == HuePowerUpKind.Hint ? "Undos" : kind == HuePowerUpKind.Eraser ? "Erasers" : "Extra Moves";
             title.text = "Out of " + name;
             itemIcon.sprite = sprite; itemIcon.color = tint;
             amountLabel.text = "+" + amount;

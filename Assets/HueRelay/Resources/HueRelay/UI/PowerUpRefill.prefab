@@ -730,7 +730,7 @@ MonoBehaviour:
     m_HorizontalOverflow: 0
     m_VerticalOverflow: 0
     m_LineSpacing: 1
-  m_Text: Watch a video to get 1 hint.
+  m_Text: Watch a video to get 1 undo.
 --- !u!1 &8395707730607249797
 GameObject:
   m_ObjectHideFlags: 0
@@ -809,7 +809,7 @@ MonoBehaviour:
     m_HorizontalOverflow: 0
     m_VerticalOverflow: 0
     m_LineSpacing: 1
-  m_Text: Out of Hints
+  m_Text: Out of Undos
 --- !u!1 &8922407011129413467
 GameObject:
   m_ObjectHideFlags: 0

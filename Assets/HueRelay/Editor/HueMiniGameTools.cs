@@ -478,8 +478,8 @@ namespace HueRelay.Editor
                 if (!game.CanErase || game.ErasersRemaining != 3 || game.ExtraMovesRemaining != 1)
                     throw new Exception("Fresh-board item state is incorrect.");
                 view.hintButton.onClick.Invoke();
-                if (game.HintsRemaining != 2 || (int)Field("hintId").GetValue(game) < 0)
-                    throw new Exception("Hint did not highlight an arrow and consume one use.");
+                if (game.HintsRemaining != 3 || game.CanUndo)
+                    throw new Exception("Undo consumed inventory without a previous tap.");
                 view.eraseButton.onClick.Invoke();
                 if (!game.IsChoosingErase || game.ErasersRemaining != 3 || game.CanHint || game.CanAddMoves)
                     throw new Exception("Erase selection consumed an item or allowed another tool.");
@@ -516,7 +516,7 @@ namespace HueRelay.Editor
                     throw new Exception("Extra moves did not add exactly three steps once.");
                 game.ToggleErase(); game.TapArrow(0); game.Retry();
                 if (game.IsErasing || game.IsChoosingErase || game.Limit != originalLimit || game.ErasersRemaining != 1
-                    || game.HintsRemaining != 2 || game.ExtraMovesRemaining != 0)
+                    || game.HintsRemaining != 3 || game.ExtraMovesRemaining != 0)
                     throw new Exception("Retry did not cancel animation or retained the wrong global inventory.");
                 HuePowerUpChecks.InstallInventory(game,3,3,1);
                 itemStarted = EditorApplication.timeSinceStartup;

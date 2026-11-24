@@ -16,6 +16,17 @@ namespace HueRelay
         public float effectsVolume = .5f;
         public static bool SoundEnabled = true;
         public static bool VibrationEnabled = true;
+        private static HueAudio instance;
+        private bool adPlaying, hostVisible = true, focused = true, applicationPaused;
+        private int recoveryAttempts;
+        private float recoverAt;
+        private bool CanOutput => !adPlaying && hostVisible && focused && !applicationPaused;
+#if UNITY_WEBGL && !UNITY_EDITOR && !UNITY_LUNA
+        [System.Runtime.InteropServices.DllImport("__Internal")]
+        private static extern void HueAudio_SetPlaybackAllowed(int allowed);
+        [System.Runtime.InteropServices.DllImport("__Internal")]
+        private static extern void HueAudio_Resume();
+#endif
         private static readonly long[] ShortVibrationPattern = { 15 };
 #if IVY_SDK_TT && UNITY_WEBGL && !UNITY_EDITOR && !UNITY_LUNA
         private static readonly TTSDK.VibrateShortParam ShortVibration = new TTSDK.VibrateShortParam();
@@ -23,7 +34,7 @@ namespace HueRelay
 
         public static void VibrateShort()
         {
-            if (!VibrationEnabled) return;
+            if (!VibrationEnabled || (instance && !instance.CanOutput)) return;
 #if IVY_SDK_TT && UNITY_WEBGL && !UNITY_EDITOR && !UNITY_LUNA
             try
             {
@@ -111,10 +122,11 @@ namespace HueRelay
         /// </summary>
         private void Awake()
         {
+            instance = this;
             SoundEnabled = PlayerPrefs.GetInt("cc_sound", 1) != 0;
             VibrationEnabled = PlayerPrefs.GetInt("cc_vibration", 1) != 0;
-#if UNITY_LUNA || (UNITY_WEBGL && !UNITY_EDITOR)
             playableSource = GetComponent<AudioSource>();
+#if UNITY_LUNA || (UNITY_WEBGL && !UNITY_EDITOR)
             playableSource.playOnAwake = false;
             playableSource.loop = false;
 #if !UNITY_LUNA
@@ -131,13 +143,73 @@ namespace HueRelay
             b1 = (1 - cs) / den;
             a1 = -2 * cs / den;
             a2 = (1 - alpha) / den;
-            var s = GetComponent<AudioSource>();
+            var s = playableSource;
             s.playOnAwake = false;
             s.loop = true;
             s.spatialBlend = 0;
             var c = AudioClip.Create("Web Audio oscillator bus", 256, 1, rate, false);
             s.clip = c;
             s.Play();
+#endif
+            RefreshOutput();
+        }
+
+        // Ad callbacks and host OnShow can arrive in either order. Both must permit
+        // playback before recovering; never change the player's saved settings.
+        public static void SetAdPlayback(bool playing)
+        {
+            if (!instance) return;
+            instance.adPlaying = playing;
+            if (playing)
+            {
+                // Discard short effects from before the video, rather than replaying
+                // them together when the host gives back its audio session.
+                lock (instance.gate)
+                    Array.Clear(instance.voices, 0, instance.voices.Length);
+#if UNITY_LUNA || (UNITY_WEBGL && !UNITY_EDITOR)
+                if (instance.playableSource) instance.playableSource.Stop();
+#endif
+            }
+            instance.RefreshOutput();
+        }
+
+        public static void SetHostVisible(bool visible)
+        {
+            if (!instance) return;
+            instance.hostVisible = visible;
+            instance.RefreshOutput();
+        }
+
+        private void OnApplicationFocus(bool value) { focused = value; RefreshOutput(); }
+        private void OnApplicationPause(bool value) { applicationPaused = value; RefreshOutput(); }
+
+        private void RefreshOutput()
+        {
+            recoveryAttempts = CanOutput ? 3 : 0;
+            recoverAt = Time.unscaledTime;
+#if UNITY_WEBGL && !UNITY_EDITOR && !UNITY_LUNA
+            HueAudio_SetPlaybackAllowed(CanOutput ? 1 : 0);
+#endif
+        }
+
+        private void Update()
+        {
+            // Bounded retries handle hosts which release the audio session a little
+            // after OnClose. A raw browser touch also retries in the WebGL bridge.
+            if (recoveryAttempts == 0 || !CanOutput || Time.unscaledTime < recoverAt) return;
+            recoveryAttempts--;
+            recoverAt = Time.unscaledTime + .25f;
+            RecoverOutput();
+        }
+
+        private void RecoverOutput()
+        {
+            if (!CanOutput || AudioListener.pause || !SoundEnabled) return;
+#if UNITY_WEBGL && !UNITY_EDITOR && !UNITY_LUNA
+            HueAudio_Resume();
+#elif !UNITY_LUNA
+            playableSource.UnPause();
+            if (playableSource.clip && !playableSource.isPlaying) playableSource.Play();
 #endif
         }
 
@@ -149,7 +221,8 @@ namespace HueRelay
         /// <param name="volume">峰值音量，按原版限制为不超过 0.2。</param>
         public void Tone(double f, double d = .3, double volume = .13)
         {
-            if (!SoundEnabled) return;
+            if (!SoundEnabled || !CanOutput) return;
+            RecoverOutput();
 #if UNITY_LUNA || (UNITY_WEBGL && !UNITY_EDITOR)
             if (playableTones == null || playableSource == null) return;
             for (int i = 0; i < playableTones.Length; i++)
@@ -260,8 +333,13 @@ namespace HueRelay
         /// <param name="durations">震动、停顿交替的毫秒时长，首项表示震动。</param>
         public static void Vibrate(params long[] durations)
         {
-            if (!VibrationEnabled) return;
-#if UNITY_ANDROID && !UNITY_EDITOR
+            if (!VibrationEnabled || durations == null || durations.Length == 0
+                || (instance && !instance.CanOutput)) return;
+#if IVY_SDK_TT && UNITY_WEBGL && !UNITY_EDITOR && !UNITY_LUNA
+            // TikTok exposes short pulses, not Android's millisecond patterns.
+            // Route all gameplay feedback through the capability-checked TT API.
+            VibrateShort();
+#elif UNITY_ANDROID && !UNITY_EDITOR
             try
             {
                 using (var player = new AndroidJavaClass("com.unity3d.player.UnityPlayer"))
@@ -292,6 +370,13 @@ namespace HueRelay
         /// </summary>
         private void OnDestroy()
         {
+            if (instance == this)
+            {
+#if UNITY_WEBGL && !UNITY_EDITOR && !UNITY_LUNA
+                HueAudio_SetPlaybackAllowed(0);
+#endif
+                instance = null;
+            }
 #if !UNITY_LUNA && (!UNITY_WEBGL || UNITY_EDITOR)
             var s = GetComponent<AudioSource>();
             if (s && s.clip)

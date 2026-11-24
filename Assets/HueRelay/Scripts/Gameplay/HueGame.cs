@@ -220,11 +220,6 @@ namespace HueRelay
         [SerializeField] private HueAudio audioBus;
 
         /// <summary>
-        /// 提示搜索持续使用的随机序列；重试不重置该序列，以对应原版行为。
-        /// </summary>
-        private HueRandom hintRandom = new HueRandom(99);
-
-        /// <summary>
         /// 等待 400 毫秒接力动画完成后自动发射的箭头队列。
         /// </summary>
         private readonly Queue<int> q = new Queue<int>(30);
@@ -347,7 +342,7 @@ namespace HueRelay
         {
             get
             {
-                return !busy && flies.Count == 0 && bumps.Count == 0 && !IsErasing;
+                return !busy && flies.Count == 0 && bumps.Count == 0 && !IsErasing && !IsUndoing;
             }
         }
 
@@ -545,6 +540,7 @@ namespace HueRelay
             charged.Clear();
             chargeAt.Clear();
             ClearEffects();
+            ResetUndo();
             sceneView.HideTransient();
             busy = Over = Won = sheetVisible = false;
             cachedModal = -1;
@@ -595,25 +591,11 @@ namespace HueRelay
         }
 
         /// <summary>
-        /// 优先提示关卡标准解；偏离标准路线或进入无尽模式时使用模拟搜索。
+        /// 保留场景和旧存档的 Hint 入口；第一道具现在执行撤回。
         /// </summary>
         public void Hint()
         {
-            TrackGameEvent("powerup_click", "powerup", "hint");
-            ResetIdleMoveGuide();
-            if (!CanRequestHint)
-                return;
-            if (hints == 0) { OpenPowerUpRefill(HuePowerUpKind.Hint); return; }
-            int suggested = CampaignHint();
-            if (suggested < 0) suggested = Best(P, Mask, hintRandom, 300).first;
-            if (suggested < 0)
-                return;
-            if (!Inventory.TrySpend(HuePowerUpKind.Hint)) return;
-            TrackGameEvent("powerup_use", "powerup", "hint");
-            hintId = suggested;
-            hintAt = now;
-            audioBus.Tone(660, .14, .08);
-            Render();
+            Undo();
         }
 
         private int CampaignHint()
@@ -644,6 +626,7 @@ namespace HueRelay
             chainN++;
             int points = 10 * chainN;
             Score += points;
+            RecordUndoLaunch(i, points);
             flies.Add(new Flight { a = a, s = 0, k = chainN, points = points });
             Ring(G(a.Head), Col(a.c), cs * .15f, 2.6f, 3.6f, 2);
             audioBus.Blip(chainN - 1);
@@ -670,6 +653,7 @@ namespace HueRelay
 
             foreach (int j in auto)
             {
+                undoOwners[j] = undoOwners[i];
                 charged.Add(j);
                 chargeAt.Remove(j);
                 q.Enqueue(j);
@@ -718,7 +702,7 @@ namespace HueRelay
             if (IsRuntimeDebugOpen) return;
             ResetIdleMoveGuide();
             telemetry?.FirstAction();
-            if (IsPaused || refillOpen) return;
+            if (IsPaused || refillOpen || IsUndoing) return;
             if (IsChoosingErase)
             {
                 SelectEraseArrow(bi);
@@ -751,6 +735,7 @@ namespace HueRelay
             if (UsesChainGuide && (!Idle || !CanStartGuidedChain(bi)))
                 return;
             hintId = -1;
+            BeginUndoStep(bi);
             Taps++;
             int em = Mask;
             foreach (int i in q)
@@ -1045,6 +1030,7 @@ namespace HueRelay
             }
 
             UpdateErase();
+            UpdateUndo();
             UpdateEffects();
             if (!Over && Idle && !IsChoosingErase && tut < 0 && (Mask == 0 || Taps >= Limit))
             {

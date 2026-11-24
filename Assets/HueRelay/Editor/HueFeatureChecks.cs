@@ -46,6 +46,7 @@ namespace HueRelay.Editor
             if (!Application.isPlaying) throw new InvalidOperationException("Run in Play mode.");
             HueAdChecks.PolicyChecks();
             HueAdChecks.RuntimeChecks();
+            HueUndoChecks.Run();
             MoveCountFeedbackChecks();
             var game = UnityEngine.Object.FindObjectOfType<HueGame>();
             var view = UnityEngine.Object.FindObjectOfType<HueView>();
@@ -87,7 +88,7 @@ namespace HueRelay.Editor
             Require(!(bool)guide.GetValue(game), "Unavailable gameplay accumulated idle time.");
             AnalyticsChecks();
             Directory.CreateDirectory("Logs/Features");
-            File.WriteAllText("Logs/Features/checks.txt", "PASS: ad pacing and runtime integration; one-item rewards; step-by-step move feedback; rewarded-only formats; every-third-win videos without rewards or time cooldown; no automatic failure/navigation ads; rewarded revive and victory delay; idle guide threshold/input restoration; analytics attempts, first action, result deduplication, background deduplication, retry/abandon, checkpoint recovery.\n");
+            File.WriteAllText("Logs/Features/checks.txt", "PASS: ad pacing and runtime integration; one-item rewards; step-by-step move feedback; rewarded-only formats; every-win videos from level 3 without rewards or time cooldown; sequential path-return undo and overlapping-chain accounting; no automatic failure/navigation ads; rewarded revive and victory delay; idle guide threshold/input restoration; analytics attempts, first action, result deduplication, background deduplication, retry/abandon, checkpoint recovery.\n");
         }
         private static void MoveCountFeedbackChecks()
         {

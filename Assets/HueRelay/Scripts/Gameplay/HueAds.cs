@@ -39,6 +39,7 @@ namespace HueRelay
             Shutdown();
             game = owner; policy = settings; backend = provider; clock = time;
             foregroundSeconds = 0; pacing = new HueAdPacing(settings);
+            HueAudio.SetHostVisible(hostVisible);
             for (int i = 0; i < loading.Length; i++) { loading[i] = false; nextLoad[i] = 0; }
             backend.VisibilityChanged += OnHostVisibility;
             BindRewarded();
@@ -60,7 +61,12 @@ namespace HueRelay
         }
         private void OnApplicationFocus(bool value) { focused = value; }
         private void OnApplicationPause(bool value) { paused = value; }
-        private void OnHostVisibility(bool value) { hostVisible = value; if (game) game.TelemetryHostVisibility(value); }
+        private void OnHostVisibility(bool value)
+        {
+            hostVisible = value;
+            HueAudio.SetHostVisible(value);
+            if (game) game.TelemetryHostVisibility(value);
+        }
 
         // Deterministic clock/backend injection keeps checks independent of ads and player saves.
         public void Tick()
@@ -130,7 +136,7 @@ namespace HueRelay
             string blocked = pacing.InterstitialBlock(Now, context, pending, backend.IsReady(HueAdFormat.Rewarded));
             if (blocked != null)
             {
-                // A missed third-win opportunity is skipped, never queued onto the next level.
+                // An unloaded victory opportunity is skipped, never queued onto navigation.
                 if (blocked == "not_loaded") pacing.RecordInterstitialAttempt(Now);
                 Trace("Rewarded:result_win:skip:" + blocked); continued(); return;
             }
@@ -158,6 +164,7 @@ namespace HueRelay
             pendingResultVideo = resultVideo;
             int token = ++request;
             previousAudioPause = AudioListener.pause; AudioListener.pause = true;
+            HueAudio.SetAdPlayback(true);
             Trace(format + (resultVideo ? ":result_win" : "") + ":show_requested");
             try { backend.Show(format, result => Finish(token, result)); }
             catch (Exception e) { Trace(format + ":show_failed:" + e.Message); Finish(token, HueAdOutcome.Failed); }
@@ -168,8 +175,10 @@ namespace HueRelay
             if (!pending || token != request) return;
             var callback = finished; var format = pendingFormat; bool resultVideo = pendingResultVideo;
             finished = null; pending = false; pendingResultVideo = false; request++;
-            AudioListener.pause = previousAudioPause;
             ReleaseAd(format); loading[(int)format] = false;
+            // SDK destruction can synchronously run host callbacks; restore after it.
+            AudioListener.pause = previousAudioPause;
+            HueAudio.SetAdPlayback(false);
             nextLoad[(int)format] = Now + (outcome == HueAdOutcome.Completed || outcome == HueAdOutcome.Cancelled
                 ? (resultVideo ? 0 : 1) : policy.RetryDelay);
             if (!resultVideo) pacing.RecordRewardedActivity(Now);

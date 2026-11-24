@@ -44,7 +44,8 @@ namespace HueRelay.Editor
                 fresh.DebugSetCounts(1,1,1);
                 typeof(HueGame).GetField("inventory",Flags).SetValue(game,fresh);
                 game.StartLevel(3); game.Hint();
-                Require(game.HintsRemaining==0,"Hint did not spend global inventory.");
+                Require(game.HintsRemaining==1 && !game.CanUndo,"Undo must not spend inventory on a fresh board.");
+                fresh.DebugSetCounts(0,1,1);
                 game.Retry(); game.StartLevel(10);
                 Require(game.HintsRemaining==0,"Retry/next level replenished inventory.");
                 game.StartTutorial(); game.Hint(); game.AddMoves(); game.ToggleErase(); game.EndTutorial();
@@ -70,6 +71,13 @@ namespace HueRelay.Editor
             Panel(view).closeButton.onClick.Invoke();
             Require(!game.IsPowerUpRefillOpen && game.HintsRemaining==0,"Closing refill granted a reward.");
 
+            // Exercise one adapter at a time. The real scene adapter may return
+            // no-fill synchronously before the injected callback runs in Editor.
+            var ads = game.GetComponent<HueAds>();
+            bool adsEnabled = ads && ads.enabled;
+            if (ads) ads.enabled = false;
+            try
+            {
             Action<bool> callback=null;
             int requests=0;
             HuePowerUpKind received=HuePowerUpKind.Hint;
@@ -132,6 +140,8 @@ namespace HueRelay.Editor
             Directory.CreateDirectory("Logs/PowerUps");
             File.WriteAllText("Logs/PowerUps/checks.txt","PASS: first-launch 0/0/0; no reset on retry/level/menu/tutorial/reload; all three empty icons clickable; modal blocks input and clock; correct icon/+1; pending request deduplication; failed/cancelled/duplicate/late callbacks grant nothing; completion pays selected item exactly once and persists; no auto-use; missing adapter safe; Editor simulation; config edits do not repeat gifts.\n");
             phase=2; return true;
+            }
+            finally { if (ads) ads.enabled = adsEnabled; }
         }
     }
 }

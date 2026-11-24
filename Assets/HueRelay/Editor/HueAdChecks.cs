@@ -43,10 +43,12 @@ namespace HueRelay.Editor
                     Require(rejected, "A legacy format request must return unavailable without touching the SDK.");
                 }
                 var pacing = new HueAdPacing(config);
-                pacing.RecordWin(); pacing.RecordWin();
-                Require(pacing.InterstitialBlock(0, Win(), false, true) == "not_enough_wins", "Two wins must not qualify.");
-                pacing.RecordWin(); pacing.RecordRewardedActivity(0);
-                Require(pacing.InterstitialBlock(0, Win(3), false, true) == null, "The third win must qualify immediately, even after a tool ad.");
+                Require(pacing.InterstitialBlock(0, Win(), false, true) == "not_enough_wins", "A result video requires a win.");
+                pacing.RecordWin();
+                Require(pacing.InterstitialBlock(0, Win(1), false, true) == "protected_level"
+                    && pacing.InterstitialBlock(0, Win(2), false, true) == "protected_level", "Levels one and two must remain protected.");
+                pacing.RecordRewardedActivity(0);
+                Require(pacing.InterstitialBlock(0, Win(3), false, true) == null, "Level three must qualify immediately, even after a tool ad or fresh launch.");
                 Require(pacing.InterstitialBlock(0, Win(), true, true) == "another_ad_active", "Overlapping videos allowed.");
                 Require(pacing.InterstitialBlock(0, Win(), false, false) == "not_loaded", "Unloaded video qualified.");
                 var failure = Win(); failure.won = false;
@@ -58,11 +60,10 @@ namespace HueRelay.Editor
                 }
                 for (int group = 0; group < 9; group++)
                 {
-                    Require(pacing.InterstitialBlock(0, Win(), false, true) == null, "A time gate or session cap suppressed the third win.");
+                    Require(pacing.InterstitialBlock(0, Win(), false, true) == null, "A time gate or session cap suppressed a win.");
                     pacing.RecordInterstitialAttempt(0); pacing.RecordInterstitialClosed(0);
                     Require(pacing.WinsSinceInterstitial == 0, "Video opportunity did not reset the win counter.");
-                    pacing.RecordWin(); pacing.RecordWin();
-                    Require(pacing.InterstitialBlock(0, Win(), false, true) == "not_enough_wins", "Video repeated before three further wins.");
+                    Require(pacing.InterstitialBlock(0, Win(), false, true) == "not_enough_wins", "Video repeated without another win.");
                     pacing.RecordWin();
                 }
                 Require(pacing.InterstitialsThisSession == 9, "More than six result videos must be allowed without a session cap.");
@@ -74,7 +75,7 @@ namespace HueRelay.Editor
                 config.adsEnabled = true; config.rewardedAdUnitId = " ";
                 Require(ReadyPolicy(config).InterstitialBlock(999, Win(), false, true) == "disabled_or_missing_placement", "Blank placement accepted.");
                 Directory.CreateDirectory("Logs/Ads");
-                File.WriteAllText("Logs/Ads/policy-checks.txt", "PASS: " + checks + " policy checks: every third win at time zero, no startup/module/cooldown/grace/session-cap gates; readiness, single-flight, disabled and missing placements; tool-ad cooldown retained.\n");
+                File.WriteAllText("Logs/Ads/policy-checks.txt", "PASS: " + checks + " policy checks: every victory from level 3 including a fresh session at level 3; levels 1/2 protected; no result cooldown/session cap; readiness, single-flight, placement switches; tool-ad cooldown retained.\n");
             }
             finally { UnityEngine.Object.DestroyImmediate(config); }
         }
@@ -82,9 +83,9 @@ namespace HueRelay.Editor
         private static void ProductionPolicyChecks()
         {
             var config = Resources.Load<HueAdPolicy>("HueRelay/Data/AdPolicy");
-            Require(config && config.winsBetweenInterstitials == 3 && config.FirstInterstitialDelay == 0
+            Require(config && config.winsBetweenInterstitials == 1 && config.protectedCampaignLevels == 2 && config.FirstInterstitialDelay == 0
                 && config.InterstitialInterval == 0 && config.rewardedGraceSeconds == 0,
-                "Production result videos must use three wins without a time cooldown.");
+                "Production result videos must begin on level 3 and run every win without a time cooldown.");
             Require(string.IsNullOrWhiteSpace(config.interstitialAdUnitId) && config.RewardedConfigured,
                 "Only the rewarded video placement may be configured.");
         }
@@ -96,6 +97,7 @@ namespace HueRelay.Editor
             public int preloads, shows;
             public bool throwOnShow;
             public bool autoLoad = true;
+            public Action onRelease;
             public HueAdFormat format;
             public Action<HueAdOutcome> complete;
             public bool Supports(HueAdFormat value) => value == HueAdFormat.Rewarded;
@@ -111,7 +113,7 @@ namespace HueRelay.Editor
                 shows++; format = value; complete = callback;
                 if (throwOnShow) throw new InvalidOperationException("simulated show error");
             }
-            public void Release(HueAdFormat value) { ready[(int)value] = false; }
+            public void Release(HueAdFormat value) { ready[(int)value] = false; onRelease?.Invoke(); }
             public void SetVisible(bool value) { VisibilityChanged?.Invoke(value); }
             public void Dispose() { VisibilityChanged = null; }
         }
@@ -121,16 +123,16 @@ namespace HueRelay.Editor
             PlayerPrefs.SetString(InventoryKey, "{\"version\":1,\"hints\":0,\"erasers\":0,\"extraMoves\":0}");
             typeof(HueGame).GetField("inventory", Private).SetValue(game, new HuePowerUpInventory(game.PowerUpSettings, InventoryKey));
         }
-        private static void Board(HueGame game)
+        private static void Board(HueGame game, int level = 3)
         {
-            game.StartLevel(3);
+            game.StartLevel(level);
             float time = (float)typeof(HueGame).GetProperty("GameTime", Private).GetValue(game);
             typeof(HueGame).GetField("built", Private).SetValue(game, time - 10);
             typeof(HueGame).GetField("now", Private).SetValue(game, time);
         }
-        private static void Result(HueGame game, bool won)
+        private static void Result(HueGame game, bool won, int level = 3)
         {
-            Board(game);
+            Board(game, level);
             typeof(HueGame).GetProperty("Over").SetValue(game, true);
             typeof(HueGame).GetProperty("Won").SetValue(game, won);
             typeof(HueGame).GetField("sheetVisible", Private).SetValue(game, false);
@@ -213,26 +215,26 @@ namespace HueRelay.Editor
                 Require(backend.preloads == 0 && backend.shows == 0 && continued == 1, "Disabled policy called the backend or blocked navigation.");
                 config.adsEnabled = true;
 
-                // Every third win qualifies without waiting; navigation afterwards never requests an ad.
+                // Levels 1/2 are protected. Level 3 and every later win qualify.
                 time = 0; backend = new Backend(); ads.Initialize(game, config, backend, () => time); ads.Tick(); time = 30;
-                ads.RecordWin(); Result(game, true);
+                ads.RecordWin(); Result(game, true, 0);
                 Require(!game.IsAdBreakActive && game.ModalVisible && backend.shows == 0, "First win must not show an interstitial.");
                 game.ContinueResult();
-                ads.RecordWin(); Result(game, true);
+                ads.RecordWin(); Result(game, true, 1);
                 Require(!game.IsAdBreakActive && game.ModalVisible && backend.shows == 0, "Second win must not show a result video.");
                 game.ContinueResult();
-                ads.RecordWin(); Result(game, true);
+                ads.RecordWin(); Result(game, true, 2);
                 game.ContinueResult(); game.ContinueResult(); game.ReturnHome();
                 Require(game.IsAdBreakActive && ads.IsBusy && backend.shows == 1 && backend.format == HueAdFormat.Rewarded
-                    && game.LevelIndex == 3 && !game.ModalVisible,
+                    && game.LevelIndex == 2 && !game.ModalVisible,
                     "Winning result must use a rewarded video at the original boundary exactly once.");
                 complete = backend.complete; complete(HueAdOutcome.Completed); complete(HueAdOutcome.Completed);
-                Require(!game.IsAdBreakActive && !ads.IsBusy && game.ModalVisible && game.LevelIndex == 3 && ads.Pacing.InterstitialsThisSession == 1,
+                Require(!game.IsAdBreakActive && !ads.IsBusy && game.ModalVisible && game.LevelIndex == 2 && ads.Pacing.InterstitialsThisSession == 1,
                     "Interstitial close did not reveal/count exactly once.");
                 Require(game.HintsRemaining == 0 && game.ErasersRemaining == 0 && game.ExtraMovesRemaining == 0 && game.Score == 0,
                     "The replacement result video must grant no reward or score bonus.");
                 game.ContinueResult();
-                Require(game.LevelIndex == 4 && backend.shows == 1, "Next Level requested another ad.");
+                Require(game.LevelIndex == 3 && backend.shows == 1, "Next Level requested another ad.");
                 Result(game, false); int shown = backend.shows; game.ContinueResult();
                 Require(backend.shows == shown && !game.Over && !game.IsAdBreakActive, "Failure Retry showed an ad.");
 
@@ -263,27 +265,28 @@ namespace HueRelay.Editor
                 Require(game.ModalVisible && !game.IsAdBreakActive && !ads.IsBusy && ads.Pacing.InterstitialsThisSession == 1
                     && game.HintsRemaining == 0 && game.ErasersRemaining == 0 && game.ExtraMovesRemaining == 0,
                     "Closing the result video early must resume the result once without granting a reward.");
-                // No simulated time passes across 27 wins: show exactly on wins 3, 6, ... 27.
+                // No simulated time passes across 27 levels: videos on 3, 4, ... 27.
                 time = 0; backend = new Backend(); ads.Initialize(game, config, backend, () => time); ads.Tick();
                 ads.Pacing.RecordRewardedActivity(0);
                 for (int victory = 1; victory <= 27; victory++)
                 {
-                    ads.Tick(); ads.RecordWin(); Result(game, true);
-                    Require(backend.shows == victory / 3, "Result video did not follow the three-win cadence at time zero.");
-                    if (victory % 3 == 0)
+                    ads.Tick(); ads.RecordWin(); Result(game, true, victory - 1);
+                    Require(backend.shows == Mathf.Max(0, victory - 2), "Result video did not follow the level-3/every-win cadence at time zero.");
+                    if (victory >= 3)
                     {
-                        Require(game.IsAdBreakActive && !game.ModalVisible, "Third-win video did not precede the result.");
+                        Require(game.IsAdBreakActive && !game.ModalVisible, "Eligible victory video did not precede the result.");
                         backend.complete(HueAdOutcome.Completed);
                     }
-                    Require(game.ModalVisible && !ads.IsBusy && !game.IsAdBreakActive, "Result did not recover after the three-win opportunity.");
+                    Require(game.ModalVisible && !ads.IsBusy && !game.IsAdBreakActive, "Result did not recover after the victory video.");
                     game.ContinueResult();
                 }
-                Require(ads.Pacing.InterstitialsThisSession == 9 && game.HintsRemaining == 0 && game.ExtraMovesRemaining == 0,
-                    "A session cap or unexpected reward affected the three-win videos.");
+                Require(ads.Pacing.InterstitialsThisSession == 25 && game.HintsRemaining == 0 && game.ExtraMovesRemaining == 0,
+                    "A session cap or unexpected reward affected every-win videos.");
                 ReviveChecks(game, ads, config);
                 VictoryTimingChecks(game, config);
+                AudioRecoveryChecks(game, ads, config);
                 Directory.CreateDirectory("Logs/Ads");
-                File.WriteAllText("Logs/Ads/runtime-checks.txt", "PASS: " + checks + " checks: preload without showing; explicit opt-in; no early grant; exactly-once +1 persisted reward; cancellation/stale callbacks; no-fill; rewarded-only preload/show; every-third-win pre-result video without rewards or time cooldown; no automatic failure/Retry ads; opt-in revive +3, duplicate/cancel/no-fill/timeout/stale callback protection; half-second post-jet victory delay; skip unloaded; timeout/late-close recovery; show exceptions; game audio restored. Player inventory and tutorial flag restored.\n");
+                File.WriteAllText("Logs/Ads/runtime-checks.txt", "PASS: " + checks + " checks: preload without showing; explicit opt-in; no early grant; exactly-once +1 persisted reward; cancellation/stale callbacks; no-fill; rewarded-only preload/show; every-win pre-result video from level 3 without rewards or time cooldown; no automatic failure/Retry ads; opt-in revive +3, duplicate/cancel/no-fill/timeout/stale callback protection; half-second post-jet victory delay; skip unloaded; timeout/late-close recovery; show exceptions; audio recovery across all outcomes and both OnShow/OnClose orders; foreground gating; disabled sound/vibration preferences preserved. Player inventory and tutorial flag restored.\n");
             }
             finally
             {
@@ -296,6 +299,75 @@ namespace HueRelay.Editor
                 ads.policy = originalPolicy; ads.enabled = true;
                 focusField.SetValue(ads, oldFocus);
                 UnityEngine.Object.DestroyImmediate(config);
+            }
+        }
+
+        private static void AudioRecoveryChecks(HueGame game, HueAds ads, HueAdPolicy config)
+        {
+            var audio = UnityEngine.Object.FindObjectOfType<HueAudio>();
+            var canOutput = typeof(HueAudio).GetProperty("CanOutput", Private);
+            var focus = typeof(HueAudio).GetField("focused", Private);
+            var paused = typeof(HueAudio).GetField("applicationPaused", Private);
+            bool oldFocus = (bool)focus.GetValue(audio), oldPaused = (bool)paused.GetValue(audio);
+            bool sound = HueAudio.SoundEnabled, vibration = HueAudio.VibrationEnabled, listenerPaused = AudioListener.pause;
+            int soundPref = PlayerPrefs.GetInt("cc_sound", 1), vibrationPref = PlayerPrefs.GetInt("cc_vibration", 1);
+            try
+            {
+                focus.SetValue(audio, true); paused.SetValue(audio, false);
+                foreach (var outcome in new[] { HueAdOutcome.Completed, HueAdOutcome.Cancelled,
+                    HueAdOutcome.Failed, HueAdOutcome.Unavailable, HueAdOutcome.TimedOut })
+                foreach (bool showBeforeClose in new[] { false, true })
+                {
+                    double time = 0;
+                    var backend = new Backend(); ads.Initialize(game, config, backend, () => time);
+                    AudioListener.pause = false;
+                    HueAudio.SoundEnabled = false; HueAudio.VibrationEnabled = false;
+                    ads.Tick(); ads.RecordWin(); ads.RecordWin(); ads.RecordWin();
+                    Result(game, true);
+                    Require(ads.IsBusy && !(bool)canOutput.GetValue(audio), "Feedback remained active during a video.");
+                    backend.SetVisible(false);
+                    if (showBeforeClose) backend.SetVisible(true);
+                    Require(!(bool)canOutput.GetValue(audio), "OnShow re-enabled feedback before the video closed.");
+                    // Model synchronous host cleanup during ad destruction.
+                    backend.onRelease = () => AudioListener.pause = true;
+                    var close = backend.complete;
+                    if (outcome == HueAdOutcome.TimedOut) { time += config.PlaybackTimeout + 1; ads.Tick(); }
+                    else close(outcome);
+                    backend.onRelease = null;
+                    Require(!ads.IsBusy && !AudioListener.pause, "Ad exit left the listener paused: " + outcome);
+                    Require((bool)canOutput.GetValue(audio) == showBeforeClose,
+                        "Audio recovery ignored host visibility: " + outcome);
+                    backend.SetVisible(true);
+                    close(HueAdOutcome.Completed); // stale success must not change sound or rewards.
+                    Require((bool)canOutput.GetValue(audio) && !HueAudio.SoundEnabled && !HueAudio.VibrationEnabled,
+                        "Ad recovery failed or overwrote disabled settings.");
+                    HueAudio.SoundEnabled = true; HueAudio.VibrationEnabled = true;
+                    Require((bool)canOutput.GetValue(audio), "Feedback did not resume with enabled settings.");
+                    game.ContinueResult();
+                }
+                typeof(HueAudio).GetMethod("OnApplicationPause", Private).Invoke(audio, new object[] { true });
+                Require(!(bool)canOutput.GetValue(audio), "Paused app allowed feedback.");
+                typeof(HueAudio).GetMethod("OnApplicationFocus", Private).Invoke(audio, new object[] { false });
+                typeof(HueAudio).GetMethod("OnApplicationPause", Private).Invoke(audio, new object[] { false });
+                Require(!(bool)canOutput.GetValue(audio), "Pause exit ignored missing focus.");
+                typeof(HueAudio).GetMethod("OnApplicationFocus", Private).Invoke(audio, new object[] { true });
+                Require((bool)canOutput.GetValue(audio), "Foreground return did not restore feedback.");
+                double pausedTime = 0;
+                var pausedBackend = new Backend(); ads.Initialize(game, config, pausedBackend, () => pausedTime);
+                AudioListener.pause = true;
+                ads.Tick(); ads.RecordWin(); ads.RecordWin(); ads.RecordWin(); Result(game, true);
+                pausedBackend.complete(HueAdOutcome.Cancelled);
+                Require(AudioListener.pause, "Ad recovery overrode another owner's existing audio pause.");
+                game.ContinueResult();
+                Require(PlayerPrefs.GetInt("cc_sound", 1) == soundPref && PlayerPrefs.GetInt("cc_vibration", 1) == vibrationPref,
+                    "Audio recovery changed the player's saved preferences.");
+            }
+            finally
+            {
+                focus.SetValue(audio, oldFocus); paused.SetValue(audio, oldPaused);
+                HueAudio.SoundEnabled = sound; HueAudio.VibrationEnabled = vibration;
+                HueAudio.SetAdPlayback(false); HueAudio.SetHostVisible(true);
+                AudioListener.pause = listenerPaused;
             }
         }
 

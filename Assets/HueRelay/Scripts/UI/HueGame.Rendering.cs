@@ -52,7 +52,7 @@ namespace HueRelay
                 shake = new Vector2(Mathf.Sin(st * 70), Mathf.Cos(st * 55) * .6f) * shakeAmplitude * k * K;
             }
             Vector2 origin = new Vector2(ox, oy) + shake + new Vector2(P.L.w * cs, P.L.h * cs) * .5f * (1 - ps);
-            bool dynamicBoard = IsErasing || ripples.Count > 0 || flies.Count > 0 || bumps.Count > 0 || charged.Count > 0
+            bool dynamicBoard = IsErasing || IsUndoing || ripples.Count > 0 || flies.Count > 0 || bumps.Count > 0 || charged.Count > 0
                 || hintId >= 0 || now - built < P.n * .026f + .42f;
             // Rebuild once after the last animation, then retain the settled mesh.
             if (dynamicBoard || boardWasDynamic || renderedPuzzle != P || renderedMask != Mask
@@ -307,6 +307,14 @@ namespace HueRelay
 
             foreach (var f in flies)
                 Path(board, f.a, f.s, f.s + f.a.cells.Length - 1, Col(f.a.c), .14f + Mathf.Min(.04f, f.s * .012f), 1 + Mathf.Min(.3f, f.s * .09f));
+            foreach (var returning in returningArrows)
+            {
+                if (now < returning.start) continue;
+                var arrow = P.arrs[returning.arrow];
+                float offset = ReturningOffset(returning);
+                Path(board, arrow, offset, offset + arrow.cells.Length - 1, Col(arrow.c),
+                    .14f + Mathf.Min(.04f, offset * .012f), 1 + Mathf.Min(.3f, offset * .09f));
+            }
         }
 
         /// <summary>

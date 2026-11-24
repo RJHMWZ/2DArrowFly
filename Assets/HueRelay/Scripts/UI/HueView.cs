@@ -203,6 +203,11 @@ namespace HueRelay
             ResolveImageBindings();
             ResolvePowerUpBindings();
             ResolvePresentationBindings();
+            if (Application.isPlaying && hintButton)
+            {
+                var label = hintButton.transform.Find("Label")?.GetComponent<Text>();
+                if (label) label.text = "Undo";
+            }
             bool valid = canvas && levelData && canvasMaterial && backdropMaterial && boardSurface && effectsSurface
                 && header && head && retryButton && helpButton && hintButton && hintBadge && hintCount
                 && powerUpBar && eraseButton && extraMovesButton && eraseCount && extraMovesCount

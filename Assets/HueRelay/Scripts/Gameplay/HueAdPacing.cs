@@ -34,6 +34,7 @@ namespace HueRelay
             if (busy) return "another_ad_active";
             if (!context.beforeResult || context.tutorialActive) return "not_a_result_boundary";
             if (!context.won) return "not_a_win";
+            if (!context.endless && context.levelNumber <= Math.Max(0, policy.protectedCampaignLevels)) return "protected_level";
             if (WinsSinceInterstitial < Math.Max(1, policy.winsBetweenInterstitials)) return "not_enough_wins";
             if (!ready) return "not_loaded";
             return null;
