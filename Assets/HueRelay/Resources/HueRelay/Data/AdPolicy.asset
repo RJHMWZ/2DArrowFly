@@ -16,13 +16,13 @@ MonoBehaviour:
   rewardedEnabled: 1
   interstitialEnabled: 1
   rewardedAdUnitId: ad7709456718649395208
-  interstitialAdUnitId: ad7709467162021726215
-  protectedCampaignLevels: 3
-  winsBetweenInterstitials: 2
-  firstInterstitialAfterSeconds: 30
-  interstitialIntervalSeconds: 60
-  rewardedGraceSeconds: 60
-  maxInterstitialsPerSession: 6
+  interstitialAdUnitId:
+  protectedCampaignLevels: 0
+  winsBetweenInterstitials: 3
+  firstInterstitialAfterSeconds: 0
+  interstitialIntervalSeconds: 0
+  rewardedGraceSeconds: 0
+  maxInterstitialsPerSession: 0
   rewardedRequestIntervalSeconds: 10
   preloadRetrySeconds: 30
   preloadTimeoutSeconds: 20

@@ -139,7 +139,7 @@ namespace HueRelay.Editor
             simulationPolicy.hideFlags = HideFlags.HideAndDontSave;
             simulationPolicy.adsEnabled = simulationPolicy.rewardedEnabled = simulationPolicy.interstitialEnabled = true;
             simulationPolicy.rewardedAdUnitId = "editor-rewarded";
-            simulationPolicy.interstitialAdUnitId = "editor-interstitial";
+            simulationPolicy.interstitialAdUnitId = "";
             simulationPolicy.logDecisions = true;
             simulatedAds = ads;
             ads.Initialize(game, simulationPolicy, new DebugBackend(outcome));
@@ -159,7 +159,7 @@ namespace HueRelay.Editor
             private readonly bool[] ready = new bool[2];
             public event Action<bool> VisibilityChanged { add { } remove { } }
             public DebugBackend(int mode) { this.mode = mode; }
-            public bool Supports(HueAdFormat format) => true;
+            public bool Supports(HueAdFormat format) => format == HueAdFormat.Rewarded;
             public bool IsReady(HueAdFormat format) => ready[(int)format];
             public void Preload(HueAdFormat format) { ready[(int)format] = mode != 3; }
             public void Show(HueAdFormat format, Action<HueAdOutcome> completed)

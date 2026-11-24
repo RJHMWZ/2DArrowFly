@@ -8,17 +8,19 @@ namespace HueRelay
         [Header("Enable only after configuring and testing active TikTok placements")]
         public bool adsEnabled;
         public bool rewardedEnabled = true;
+        [InspectorName("Result Video Enabled")]
         public bool interstitialEnabled = true;
         public string rewardedAdUnitId = "";
-        public string interstitialAdUnitId = "";
+        [HideInInspector] public string interstitialAdUnitId = ""; // Unused legacy placement.
 
-        [Header("Interstitial pacing (foreground session time)")]
-        [Min(0)] public int protectedCampaignLevels = 3;
-        [Min(1)] public int winsBetweenInterstitials = 2;
-        [Min(15)] public float firstInterstitialAfterSeconds = 30;
-        [Min(30)] public float interstitialIntervalSeconds = 60;
-        [Min(0)] public float rewardedGraceSeconds = 60;
-        [Min(0)] public int maxInterstitialsPerSession = 6;
+        [Header("Result rewarded video: one opportunity per completed group of wins; no time cooldown")]
+        [InspectorName("Wins Between Result Videos"), Min(1)] public int winsBetweenInterstitials = 3;
+        // Preserve old serialized fields without letting them reintroduce result-video time gates.
+        [HideInInspector] public int protectedCampaignLevels;
+        [HideInInspector] public float firstInterstitialAfterSeconds;
+        [HideInInspector] public float interstitialIntervalSeconds;
+        [HideInInspector] public float rewardedGraceSeconds;
+        [HideInInspector] public int maxInterstitialsPerSession;
 
         [Header("Loading and failure recovery")]
         [Min(0)] public float rewardedRequestIntervalSeconds = 10;
@@ -28,12 +30,12 @@ namespace HueRelay
         public bool logDecisions;
 
         // Runtime clamps also protect builds from invalid serialized/remote values.
-        public float InterstitialInterval => Mathf.Max(30, interstitialIntervalSeconds);
-        public float FirstInterstitialDelay => Mathf.Max(15, firstInterstitialAfterSeconds);
+        public float InterstitialInterval => 0;
+        public float FirstInterstitialDelay => 0;
         public float RetryDelay => Mathf.Max(5, preloadRetrySeconds);
         public float LoadTimeout => Mathf.Max(5, preloadTimeoutSeconds);
         public float PlaybackTimeout => Mathf.Max(120, playbackTimeoutSeconds);
         public bool RewardedConfigured => adsEnabled && rewardedEnabled && !string.IsNullOrWhiteSpace(rewardedAdUnitId);
-        public bool InterstitialConfigured => adsEnabled && interstitialEnabled && !string.IsNullOrWhiteSpace(interstitialAdUnitId);
+        public bool InterstitialConfigured => RewardedConfigured && interstitialEnabled;
     }
 }

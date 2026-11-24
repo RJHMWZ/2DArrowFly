@@ -33,52 +33,48 @@ namespace HueRelay.Editor
             try
             {
                 ProductionPolicyChecks();
-                // Keep coverage for custom policies with stricter timing/win spacing.
-                config.winsBetweenInterstitials = 3;
-                config.firstInterstitialAfterSeconds = 120;
-                config.interstitialIntervalSeconds = 90;
-                config.rewardedGraceSeconds = 120;
-                var pacing = ReadyPolicy(config);
-                Require(pacing.InterstitialBlock(120, Win(), false, true) == null, "Normal win boundary did not qualify.");
-                foreach (int level in new[] { 1, 2, 3 }) Require(pacing.InterstitialBlock(999, Win(level), false, true) == "protected_level", "Early level was not protected.");
-                Require(pacing.InterstitialBlock(119, Win(), false, true) == "session_warmup", "First interstitial warmup bypassed.");
-                Require(pacing.InterstitialBlock(120, Win(), true, true) == "another_ad_active", "Overlapping ads allowed.");
-                Require(pacing.InterstitialBlock(120, Win(), false, false) == "not_loaded", "Unloaded interstitial was eligible.");
+                using (var live = new HueTikTokAdBackend(config))
+                {
+                    Require(!live.Supports(HueAdFormat.Interstitial) && !live.IsReady(HueAdFormat.Interstitial),
+                        "The SDK backend must reject the retired interstitial format.");
+                    live.Preload(HueAdFormat.Interstitial);
+                    bool rejected = false;
+                    live.Show(HueAdFormat.Interstitial, result => rejected = result == HueAdOutcome.Unavailable);
+                    Require(rejected, "A legacy format request must return unavailable without touching the SDK.");
+                }
+                var pacing = new HueAdPacing(config);
+                pacing.RecordWin(); pacing.RecordWin();
+                Require(pacing.InterstitialBlock(0, Win(), false, true) == "not_enough_wins", "Two wins must not qualify.");
+                pacing.RecordWin(); pacing.RecordRewardedActivity(0);
+                Require(pacing.InterstitialBlock(0, Win(3), false, true) == null, "The third win must qualify immediately, even after a tool ad.");
+                Require(pacing.InterstitialBlock(0, Win(), true, true) == "another_ad_active", "Overlapping videos allowed.");
+                Require(pacing.InterstitialBlock(0, Win(), false, false) == "not_loaded", "Unloaded video qualified.");
                 var failure = Win(); failure.won = false;
-                Require(pacing.InterstitialBlock(120, failure, false, true) == "not_a_win", "Failure result must not show an interstitial.");
+                Require(pacing.InterstitialBlock(0, failure, false, true) == "not_a_win", "Failure must not show a result video.");
                 foreach (int flag in new[] { 1, 2 })
                 {
                     var context = Win(); if (flag == 1) context.beforeResult = false; else context.tutorialActive = true;
-                    Require(pacing.InterstitialBlock(999, context, false, true) == "not_a_result_boundary", "Tutorial/non-result showed an ad.");
+                    Require(pacing.InterstitialBlock(0, context, false, true) == "not_a_result_boundary", "Non-result/tutorial video allowed.");
                 }
-                pacing = new HueAdPacing(config); pacing.RecordModuleStarted(119);
-                for (int i = 0; i < 3; i++) pacing.RecordWin();
-                Require(pacing.InterstitialBlock(120, Win(), false, true) == "sdk_module_warmup", "15-second SDK module floor bypassed.");
-                Require(pacing.InterstitialBlock(134, Win(), false, true) == null, "Module warmup did not expire.");
-                pacing = new HueAdPacing(config); pacing.RecordModuleStarted(0); pacing.RecordWin(); pacing.RecordWin();
-                Require(pacing.InterstitialBlock(999, Win(), false, true) == "not_enough_wins", "Win spacing bypassed.");
-                pacing.RecordWin(); pacing.RecordRewardedActivity(200);
-                Require(pacing.InterstitialBlock(319, Win(), false, true) == "rewarded_grace", "Reward opt-in did not suppress interstitials.");
-                Require(pacing.InterstitialBlock(320, Win(), false, true) == null, "Reward grace did not expire.");
-                Require(pacing.RewardedBlock(209, false) == "rewarded_cooldown", "Reward retry cooldown bypassed.");
-                Require(pacing.RewardedBlock(210, false) == null, "Reward cooldown did not expire.");
-                pacing.RecordInterstitialAttempt(320);
-                Require(pacing.InterstitialBlock(349, Win(), false, true) == "attempt_backoff", "Failed-attempt backoff bypassed.");
-                pacing.RecordInterstitialClosed(350);
-                for (int i = 0; i < 3; i++) pacing.RecordWin();
-                Require(pacing.InterstitialBlock(439, Win(), false, true) == "interval", "90-second interval bypassed.");
-                Require(pacing.InterstitialBlock(440, Win(), false, true) == null, "Interval did not expire.");
-                for (int i = 1; i < 6; i++) pacing.RecordInterstitialClosed(440 + i * 90);
-                for (int i = 0; i < 3; i++) pacing.RecordWin();
-                Require(pacing.InterstitialBlock(9999, Win(), false, true) == "session_cap", "Session cap bypassed.");
-                config.interstitialIntervalSeconds = 0; config.firstInterstitialAfterSeconds = 0;
-                Require(config.InterstitialInterval == 30 && config.FirstInterstitialDelay == 15, "Official minimum timing floors were not clamped.");
+                for (int group = 0; group < 9; group++)
+                {
+                    Require(pacing.InterstitialBlock(0, Win(), false, true) == null, "A time gate or session cap suppressed the third win.");
+                    pacing.RecordInterstitialAttempt(0); pacing.RecordInterstitialClosed(0);
+                    Require(pacing.WinsSinceInterstitial == 0, "Video opportunity did not reset the win counter.");
+                    pacing.RecordWin(); pacing.RecordWin();
+                    Require(pacing.InterstitialBlock(0, Win(), false, true) == "not_enough_wins", "Video repeated before three further wins.");
+                    pacing.RecordWin();
+                }
+                Require(pacing.InterstitialsThisSession == 9, "More than six result videos must be allowed without a session cap.");
+                pacing.RecordRewardedActivity(0);
+                Require(pacing.RewardedBlock(9, false) == "rewarded_cooldown", "Tool-ad cooldown unexpectedly changed.");
+                Require(pacing.RewardedBlock(10, false) == null, "Tool-ad cooldown did not expire.");
                 config.adsEnabled = false;
                 Require(ReadyPolicy(config).InterstitialBlock(999, Win(), false, true) == "disabled_or_missing_placement", "Master switch ignored.");
-                config.adsEnabled = true; config.interstitialAdUnitId = " ";
+                config.adsEnabled = true; config.rewardedAdUnitId = " ";
                 Require(ReadyPolicy(config).InterstitialBlock(999, Win(), false, true) == "disabled_or_missing_placement", "Blank placement accepted.");
                 Directory.CreateDirectory("Logs/Ads");
-                File.WriteAllText("Logs/Ads/policy-checks.txt", "PASS: " + checks + " policy checks: startup/module floors, early levels, natural win boundaries, win spacing, readiness, one ad at a time, cooldown/backoff, rewarded grace, session cap, disabled and missing placements.\n");
+                File.WriteAllText("Logs/Ads/policy-checks.txt", "PASS: " + checks + " policy checks: every third win at time zero, no startup/module/cooldown/grace/session-cap gates; readiness, single-flight, disabled and missing placements; tool-ad cooldown retained.\n");
             }
             finally { UnityEngine.Object.DestroyImmediate(config); }
         }
@@ -86,28 +82,11 @@ namespace HueRelay.Editor
         private static void ProductionPolicyChecks()
         {
             var config = Resources.Load<HueAdPolicy>("HueRelay/Data/AdPolicy");
-            Require(config && config.winsBetweenInterstitials == 2 && config.FirstInterstitialDelay == 30
-                && config.InterstitialInterval == 60 && config.rewardedGraceSeconds == 60,
-                "Production interstitial policy must use two wins and 30/60/60-second timing.");
-            var pacing = new HueAdPacing(config); pacing.RecordModuleStarted(0);
-            pacing.RecordWin();
-            Require(pacing.InterstitialBlock(29, Win(), false, true) == "session_warmup", "Production startup delay bypassed.");
-            Require(pacing.InterstitialBlock(30, Win(), false, true) == "not_enough_wins", "One win must not qualify.");
-            pacing.RecordWin();
-            Require(pacing.InterstitialBlock(30, Win(), false, true) == null, "Two wins after 30 seconds must qualify.");
-            foreach (int level in new[] { 1, 2, 3 })
-                Require(pacing.InterstitialBlock(30, Win(level), false, true) == "protected_level", "Teaching levels must remain protected.");
-            var failure = Win(); failure.won = false;
-            Require(pacing.InterstitialBlock(30, failure, false, true) == "not_a_win", "Only victories may trigger ads.");
-            pacing.RecordInterstitialAttempt(30); pacing.RecordInterstitialClosed(30); pacing.RecordWin();
-            Require(pacing.InterstitialBlock(90, Win(), false, true) == "not_enough_wins", "Win count must reset after an interstitial.");
-            pacing.RecordWin();
-            Require(pacing.InterstitialBlock(89, Win(), false, true) == "interval", "Production interstitial interval bypassed.");
-            Require(pacing.InterstitialBlock(90, Win(), false, true) == null, "Two further wins after 60 seconds must qualify.");
-            pacing.RecordRewardedActivity(100);
-            Require(pacing.InterstitialBlock(159, Win(), false, true) == "rewarded_grace", "Rewarded protection bypassed.");
-            Require(pacing.InterstitialBlock(160, Win(), false, true) == null, "Rewarded protection must expire after 60 seconds.");
-            Require(pacing.InterstitialBlock(160, Win(), false, false) == "not_loaded", "Unloaded ad must not qualify.");
+            Require(config && config.winsBetweenInterstitials == 3 && config.FirstInterstitialDelay == 0
+                && config.InterstitialInterval == 0 && config.rewardedGraceSeconds == 0,
+                "Production result videos must use three wins without a time cooldown.");
+            Require(string.IsNullOrWhiteSpace(config.interstitialAdUnitId) && config.RewardedConfigured,
+                "Only the rewarded video placement may be configured.");
         }
 
         private sealed class Backend : IHueAdBackend
@@ -119,11 +98,16 @@ namespace HueRelay.Editor
             public bool autoLoad = true;
             public HueAdFormat format;
             public Action<HueAdOutcome> complete;
-            public bool Supports(HueAdFormat value) => true;
+            public bool Supports(HueAdFormat value) => value == HueAdFormat.Rewarded;
             public bool IsReady(HueAdFormat value) => ready[(int)value];
-            public void Preload(HueAdFormat value) { preloads++; if (autoLoad) ready[(int)value] = true; }
+            public void Preload(HueAdFormat value)
+            {
+                Require(value == HueAdFormat.Rewarded, "A non-rewarded format was preloaded.");
+                preloads++; if (autoLoad) ready[(int)value] = true;
+            }
             public void Show(HueAdFormat value, Action<HueAdOutcome> callback)
             {
+                Require(value == HueAdFormat.Rewarded, "A non-rewarded format was shown.");
                 shows++; format = value; complete = callback;
                 if (throwOnShow) throw new InvalidOperationException("simulated show error");
             }
@@ -175,7 +159,7 @@ namespace HueRelay.Editor
                 var menu = UnityEngine.Object.FindObjectOfType<HueMainMenu>(true); menu.HideForGameplay();
                 Inventory(game); Board(game);
                 var backend = new Backend(); ads.Initialize(game, config, backend, () => time); ads.Tick(); time = 120;
-                Require(backend.preloads == 2 && backend.shows == 0, "Preloading displayed an ad or missed a format.");
+                Require(backend.preloads == 1 && backend.shows == 0, "Only one rewarded video must be preloaded without showing.");
                 game.Hint(); Require(game.IsPowerUpRefillOpen, "Empty Hint did not open opt-in UI.");
                 game.WatchPowerUpAd(); game.WatchPowerUpAd();
                 Require(backend.shows == 1 && backend.format == HueAdFormat.Rewarded && game.HintsRemaining == 0 && ads.IsBusy,
@@ -216,31 +200,37 @@ namespace HueRelay.Editor
                 backend.SetVisible(false); ads.Tick();
                 Require(backend.preloads == 0 && backend.shows == 0, "Ads were requested while backgrounded.");
                 backend.SetVisible(true); ads.Tick();
-                Require(backend.preloads == 2 && backend.shows == 0, "Returning to foreground auto-displayed an ad.");
+                Require(backend.preloads == 1 && backend.shows == 0, "Returning to foreground auto-displayed an ad.");
 
                 time = 0; backend = new Backend { autoLoad = false }; ads.Initialize(game, config, backend, () => time); ads.Tick();
                 time = config.LoadTimeout + 1; ads.Tick();
-                Require(backend.preloads == 2 && backend.shows == 0, "Stalled preload retried without backoff.");
+                Require(backend.preloads == 1 && backend.shows == 0, "Stalled preload retried without backoff.");
                 time += config.RetryDelay + 1; ads.Tick();
-                Require(backend.preloads == 4 && backend.shows == 0, "Stalled preload did not recover after backoff.");
+                Require(backend.preloads == 2 && backend.shows == 0, "Stalled preload did not recover after backoff.");
 
                 config.adsEnabled = false; backend = new Backend(); ads.Initialize(game, config, backend, () => time); ads.Tick();
                 int continued = 0; ads.TryInterstitial(Win(), () => continued++);
                 Require(backend.preloads == 0 && backend.shows == 0 && continued == 1, "Disabled policy called the backend or blocked navigation.");
                 config.adsEnabled = true;
 
-                // Two wins qualify after warmup; navigation afterwards never requests an ad.
+                // Every third win qualifies without waiting; navigation afterwards never requests an ad.
                 time = 0; backend = new Backend(); ads.Initialize(game, config, backend, () => time); ads.Tick(); time = 30;
                 ads.RecordWin(); Result(game, true);
                 Require(!game.IsAdBreakActive && game.ModalVisible && backend.shows == 0, "First win must not show an interstitial.");
                 game.ContinueResult();
                 ads.RecordWin(); Result(game, true);
+                Require(!game.IsAdBreakActive && game.ModalVisible && backend.shows == 0, "Second win must not show a result video.");
+                game.ContinueResult();
+                ads.RecordWin(); Result(game, true);
                 game.ContinueResult(); game.ContinueResult(); game.ReturnHome();
-                Require(game.IsAdBreakActive && ads.IsBusy && backend.shows == 1 && game.LevelIndex == 3 && !game.ModalVisible,
-                    "Winning result was not gated or repeated the ad.");
+                Require(game.IsAdBreakActive && ads.IsBusy && backend.shows == 1 && backend.format == HueAdFormat.Rewarded
+                    && game.LevelIndex == 3 && !game.ModalVisible,
+                    "Winning result must use a rewarded video at the original boundary exactly once.");
                 complete = backend.complete; complete(HueAdOutcome.Completed); complete(HueAdOutcome.Completed);
                 Require(!game.IsAdBreakActive && !ads.IsBusy && game.ModalVisible && game.LevelIndex == 3 && ads.Pacing.InterstitialsThisSession == 1,
                     "Interstitial close did not reveal/count exactly once.");
+                Require(game.HintsRemaining == 0 && game.ErasersRemaining == 0 && game.ExtraMovesRemaining == 0 && game.Score == 0,
+                    "The replacement result video must grant no reward or score bonus.");
                 game.ContinueResult();
                 Require(game.LevelIndex == 4 && backend.shows == 1, "Next Level requested another ad.");
                 Result(game, false); int shown = backend.shows; game.ContinueResult();
@@ -253,24 +243,47 @@ namespace HueRelay.Editor
                 game.ContinueResult(); Require(backend.shows == 0 && !game.Over,"Retry requested another ad.");
 
                 time = 0; backend = new Backend(); ads.Initialize(game, config, backend, () => time); ads.Tick(); time = 120;
-                ads.RecordWin(); ads.RecordWin(); ads.RecordWin(); backend.ready[1] = false; Result(game, true); game.ContinueResult();
+                ads.RecordWin(); ads.RecordWin(); ads.RecordWin(); backend.ready[0] = false; Result(game, true); game.ContinueResult();
                 Require(backend.shows == 0 && game.LevelIndex == 4 && !game.IsAdBreakActive, "Unloaded interstitial blocked navigation.");
 
                 time = 0; backend = new Backend(); ads.Initialize(game, config, backend, () => time); ads.Tick(); time = 120;
-                ads.RecordWin(); ads.RecordWin(); ads.RecordWin(); Result(game, true); game.ContinueResult();
+                ads.RecordWin(); ads.RecordWin(); ads.RecordWin(); ads.RecordWin(); Result(game, true); game.ContinueResult();
                 complete = backend.complete; time += config.PlaybackTimeout + 1; ads.Tick(); complete(HueAdOutcome.Completed);
                 Require(!game.IsAdBreakActive && !ads.IsBusy && game.ModalVisible && game.LevelIndex == 3 && ads.Pacing.InterstitialsThisSession == 0
                     && AudioListener.pause == oldAudio, "Timeout/late close locked, counted or revealed twice.");
 
                 time = 0; backend = new Backend { throwOnShow = true }; ads.Initialize(game, config, backend, () => time); ads.Tick(); time = 120;
-                ads.RecordWin(); ads.RecordWin(); ads.RecordWin(); Result(game, true); game.ContinueResult();
+                ads.RecordWin(); ads.RecordWin(); ads.RecordWin(); ads.RecordWin(); Result(game, true); game.ContinueResult();
                 Require(!game.IsAdBreakActive && !ads.IsBusy && game.LevelIndex == 4, "Show exception blocked result navigation.");
                 Require(new HuePowerUpInventory(game.PowerUpSettings, InventoryKey).Count(HuePowerUpKind.Hint) == 0,
                     "Non-rewarded ad outcome changed inventory.");
+                time = 0; backend = new Backend(); ads.Initialize(game, config, backend, () => time); ads.Tick(); time = 120;
+                ads.RecordWin(); ads.RecordWin(); ads.RecordWin(); Result(game, true);
+                complete = backend.complete; complete(HueAdOutcome.Cancelled); complete(HueAdOutcome.Completed);
+                Require(game.ModalVisible && !game.IsAdBreakActive && !ads.IsBusy && ads.Pacing.InterstitialsThisSession == 1
+                    && game.HintsRemaining == 0 && game.ErasersRemaining == 0 && game.ExtraMovesRemaining == 0,
+                    "Closing the result video early must resume the result once without granting a reward.");
+                // No simulated time passes across 27 wins: show exactly on wins 3, 6, ... 27.
+                time = 0; backend = new Backend(); ads.Initialize(game, config, backend, () => time); ads.Tick();
+                ads.Pacing.RecordRewardedActivity(0);
+                for (int victory = 1; victory <= 27; victory++)
+                {
+                    ads.Tick(); ads.RecordWin(); Result(game, true);
+                    Require(backend.shows == victory / 3, "Result video did not follow the three-win cadence at time zero.");
+                    if (victory % 3 == 0)
+                    {
+                        Require(game.IsAdBreakActive && !game.ModalVisible, "Third-win video did not precede the result.");
+                        backend.complete(HueAdOutcome.Completed);
+                    }
+                    Require(game.ModalVisible && !ads.IsBusy && !game.IsAdBreakActive, "Result did not recover after the three-win opportunity.");
+                    game.ContinueResult();
+                }
+                Require(ads.Pacing.InterstitialsThisSession == 9 && game.HintsRemaining == 0 && game.ExtraMovesRemaining == 0,
+                    "A session cap or unexpected reward affected the three-win videos.");
                 ReviveChecks(game, ads, config);
                 VictoryTimingChecks(game, config);
                 Directory.CreateDirectory("Logs/Ads");
-                File.WriteAllText("Logs/Ads/runtime-checks.txt", "PASS: " + checks + " checks: preload without showing; explicit opt-in; no early grant; exactly-once +1 persisted reward; cancellation/stale callbacks; no-fill; two-win/30-second pre-result single-flight; no automatic failure/Retry ads; opt-in revive +3, duplicate/cancel/no-fill/timeout/stale callback protection; half-second post-jet victory delay; skip unloaded; timeout/late-close recovery; show exceptions; game audio restored. Player inventory and tutorial flag restored.\n");
+                File.WriteAllText("Logs/Ads/runtime-checks.txt", "PASS: " + checks + " checks: preload without showing; explicit opt-in; no early grant; exactly-once +1 persisted reward; cancellation/stale callbacks; no-fill; rewarded-only preload/show; every-third-win pre-result video without rewards or time cooldown; no automatic failure/Retry ads; opt-in revive +3, duplicate/cancel/no-fill/timeout/stale callback protection; half-second post-jet victory delay; skip unloaded; timeout/late-close recovery; show exceptions; game audio restored. Player inventory and tutorial flag restored.\n");
             }
             finally
             {

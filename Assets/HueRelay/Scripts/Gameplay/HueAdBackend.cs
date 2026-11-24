@@ -2,6 +2,8 @@ using System;
 
 namespace HueRelay
 {
+    // Value 1 is retained only for compatibility with existing editor tooling.
+    // The live backend supports rewarded videos exclusively.
     public enum HueAdFormat { Rewarded, Interstitial }
     public enum HueAdOutcome { Completed, Cancelled, Failed, Unavailable, TimedOut }
 
@@ -15,7 +17,7 @@ namespace HueRelay
         void Release(HueAdFormat format);
     }
 
-    /// <summary>Direct official SDK adapter; creation/load is never counted as an impression.</summary>
+    /// <summary>Rewarded-video SDK adapter; creation/load is never counted as an impression.</summary>
     public sealed class HueTikTokAdBackend : IHueAdBackend
     {
         private readonly HueAdPolicy policy;
@@ -27,15 +29,13 @@ namespace HueRelay
         private sealed class Slot
         {
             public TTSDK.TTRewardedVideoAd rewarded;
-            public TTSDK.TTInterstitialAd interstitial;
             public TTSDK.AdLoadDelegate loaded;
             public TTSDK.AdErrorDelegate error;
             public TTSDK.RewardedAdClosedDelegate rewardClosed;
-            public TTSDK.AdCloseDelegate interstitialClosed;
             public Action<HueAdOutcome> completed;
             public bool ready;
         }
-        private readonly Slot[] slots = { new Slot(), new Slot() };
+        private readonly Slot[] slots = { new Slot() };
         private TTSDK.TTAppLifeCycle lifeCycle;
         private TTSDK.TTAppLifeCycle.OnShowEventWithDict onShow;
         private TTSDK.TTAppLifeCycle.OnAppHideEvent onHide;
@@ -51,17 +51,14 @@ namespace HueRelay
 #endif
         public bool Supports(HueAdFormat format)
         {
-            if (policy == null) return false;
+            if (policy == null || format != HueAdFormat.Rewarded) return false;
 #if IVY_SDK_TT && UNITY_WEBGL && !UNITY_EDITOR && !UNITY_LUNA
             try
             {
                 if (!TTSDK.TT.InContainerEnv) return false; // Existing Ivy initialization owns TT.InitSDK.
                 BindLifeCycle();
-                return format == HueAdFormat.Rewarded
-                    ? TTSDK.CanIUse.CreateRewardedVideoAd && TTSDK.CanIUse.TTRewardedVideoAd.Load
-                        && TTSDK.CanIUse.TTRewardedVideoAd.IsLoaded && TTSDK.CanIUse.TTRewardedVideoAd.Show
-                    : TTSDK.CanIUse.CreateInterstitialAd && TTSDK.CanIUse.TTInterstitialAd.Load
-                        && TTSDK.CanIUse.TTInterstitialAd.IsLoaded && TTSDK.CanIUse.TTInterstitialAd.Show;
+                return TTSDK.CanIUse.CreateRewardedVideoAd && TTSDK.CanIUse.TTRewardedVideoAd.Load
+                    && TTSDK.CanIUse.TTRewardedVideoAd.IsLoaded && TTSDK.CanIUse.TTRewardedVideoAd.Show;
             }
             catch (Exception) { return false; }
 #else
@@ -70,13 +67,12 @@ namespace HueRelay
         }
         public bool IsReady(HueAdFormat format)
         {
+            if (format != HueAdFormat.Rewarded) return false;
 #if IVY_SDK_TT && UNITY_WEBGL && !UNITY_EDITOR && !UNITY_LUNA
             var slot = slots[(int)format];
             try
             {
-                return slot.ready || (format == HueAdFormat.Rewarded
-                    ? slot.rewarded != null && slot.rewarded.IsLoaded()
-                    : slot.interstitial != null && slot.interstitial.IsLoaded());
+                return slot.ready || (slot.rewarded != null && slot.rewarded.IsLoaded());
             }
             catch (Exception) { return false; }
 #else
@@ -88,29 +84,16 @@ namespace HueRelay
             if (!Supports(format)) return;
 #if IVY_SDK_TT && UNITY_WEBGL && !UNITY_EDITOR && !UNITY_LUNA
             var slot = slots[(int)format];
-            if (slot.rewarded != null || slot.interstitial != null) return;
+            if (slot.rewarded != null) return;
             try
             {
-                if (format == HueAdFormat.Rewarded)
-                {
-                    var ad = TTSDK.TT.CreateRewardedVideoAd(new TTSDK.CreateRewardedVideoAdParam { AdUnitId = policy.rewardedAdUnitId.Trim() });
-                    slot.rewarded = ad;
-                    slot.loaded = () => { if (slot.rewarded == ad) slot.ready = true; };
-                    slot.error = (_, __) => { if (slot.rewarded == ad) Finish(format, HueAdOutcome.Failed); };
-                    slot.rewardClosed = ended => { if (slot.rewarded == ad) Finish(format, ended ? HueAdOutcome.Completed : HueAdOutcome.Cancelled); };
-                    ad.OnLoad += slot.loaded; ad.OnError += slot.error; ad.OnClose += slot.rewardClosed;
-                    ad.Load();
-                }
-                else
-                {
-                    var ad = TTSDK.TT.CreateInterstitialAd(new TTSDK.CreateInterstitialAdParam { InterstitialAdId = policy.interstitialAdUnitId.Trim() });
-                    slot.interstitial = ad;
-                    slot.loaded = () => { if (slot.interstitial == ad) slot.ready = true; };
-                    slot.error = (_, __) => { if (slot.interstitial == ad) Finish(format, HueAdOutcome.Failed); };
-                    slot.interstitialClosed = () => { if (slot.interstitial == ad) Finish(format, HueAdOutcome.Completed); };
-                    ad.OnLoad += slot.loaded; ad.OnError += slot.error; ad.OnClose += slot.interstitialClosed;
-                    ad.Load();
-                }
+                var ad = TTSDK.TT.CreateRewardedVideoAd(new TTSDK.CreateRewardedVideoAdParam { AdUnitId = policy.rewardedAdUnitId.Trim() });
+                slot.rewarded = ad;
+                slot.loaded = () => { if (slot.rewarded == ad) slot.ready = true; };
+                slot.error = (_, __) => { if (slot.rewarded == ad) Finish(format, HueAdOutcome.Failed); };
+                slot.rewardClosed = ended => { if (slot.rewarded == ad) Finish(format, ended ? HueAdOutcome.Completed : HueAdOutcome.Cancelled); };
+                ad.OnLoad += slot.loaded; ad.OnError += slot.error; ad.OnClose += slot.rewardClosed;
+                ad.Load();
             }
             catch (Exception) { Finish(format, HueAdOutcome.Failed); }
 #endif
@@ -122,7 +105,7 @@ namespace HueRelay
             var slot = slots[(int)format]; slot.completed = completed; slot.ready = false;
             try
             {
-                if (format == HueAdFormat.Rewarded) slot.rewarded.Show(); else slot.interstitial.Show();
+                slot.rewarded.Show();
             }
             catch (Exception) { Finish(format, HueAdOutcome.Failed); }
 #endif
@@ -137,6 +120,7 @@ namespace HueRelay
 #endif
         public void Release(HueAdFormat format)
         {
+            if (format != HueAdFormat.Rewarded) return;
 #if IVY_SDK_TT && UNITY_WEBGL && !UNITY_EDITOR && !UNITY_LUNA
             var slot = slots[(int)format]; slots[(int)format] = new Slot();
             slot.completed = null; slot.ready = false;
@@ -146,17 +130,11 @@ namespace HueRelay
                 try { slot.rewarded.Destroy(); } catch (Exception) { }
                 slot.rewarded = null;
             }
-            if (slot.interstitial != null)
-            {
-                slot.interstitial.OnLoad -= slot.loaded; slot.interstitial.OnError -= slot.error; slot.interstitial.OnClose -= slot.interstitialClosed;
-                try { slot.interstitial.Destroy(); } catch (Exception) { }
-                slot.interstitial = null;
-            }
 #endif
         }
         public void Dispose()
         {
-            Release(HueAdFormat.Rewarded); Release(HueAdFormat.Interstitial);
+            Release(HueAdFormat.Rewarded);
 #if IVY_SDK_TT && UNITY_WEBGL && !UNITY_EDITOR && !UNITY_LUNA
             if (lifeCycle != null) { lifeCycle.OnShow -= onShow; lifeCycle.OnHide -= onHide; lifeCycle = null; }
 #endif

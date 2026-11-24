@@ -73,7 +73,7 @@ namespace HueRelay
             Save();
             return true;
         }
-#if UNITY_EDITOR
+#if UNITY_EDITOR || DEVELOPMENT_BUILD || (IVY_SDK_TT && TTSDK_LOG_DEBUG)
         // Keep reward receipts when changing balances for a test.
         public void DebugSetCounts(int hints, int erasers, int extraMoves)
         {

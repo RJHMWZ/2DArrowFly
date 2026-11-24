@@ -87,7 +87,7 @@ namespace HueRelay.Editor
             Require(!(bool)guide.GetValue(game), "Unavailable gameplay accumulated idle time.");
             AnalyticsChecks();
             Directory.CreateDirectory("Logs/Features");
-            File.WriteAllText("Logs/Features/checks.txt", "PASS: ad pacing and runtime integration; one-item rewards; step-by-step move feedback; win-only interstitials before result; no automatic failure/navigation ads; rewarded revive and victory delay; idle guide threshold/input restoration; analytics attempts, first action, result deduplication, background deduplication, retry/abandon, checkpoint recovery.\n");
+            File.WriteAllText("Logs/Features/checks.txt", "PASS: ad pacing and runtime integration; one-item rewards; step-by-step move feedback; rewarded-only formats; every-third-win videos without rewards or time cooldown; no automatic failure/navigation ads; rewarded revive and victory delay; idle guide threshold/input restoration; analytics attempts, first action, result deduplication, background deduplication, retry/abandon, checkpoint recovery.\n");
         }
         private static void MoveCountFeedbackChecks()
         {

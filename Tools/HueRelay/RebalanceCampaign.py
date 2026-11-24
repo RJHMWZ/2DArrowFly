@@ -1,4 +1,4 @@
-"""Rebalance levels 11-100 offline, preserving the first ten layouts and gameplay rules.
+"""Rebalance levels 12-100 offline, preserving the first eleven authored layouts.
 
 No runtime generation or ads are introduced. Every board has a certified solution.
 """
@@ -61,7 +61,7 @@ def validate(level):
 
 def build(source,seed):
     original=json.loads(source.read_text(encoding='utf-8'))
-    levels=copy.deepcopy(original['levels'][:10])
+    levels=copy.deepcopy(original['levels'][:11])
     for level in levels:
         if level['id'] >= 4:
             level['moves'] = level['par']
@@ -73,6 +73,7 @@ def build(source,seed):
         spec=PROFILES[chapter]
         for slot in range(10):
             number=chapter*10+slot+1
+            if number <= 11: continue
             count=round(spec[4]+(spec[5]-spec[4])*slot/9)
             # Increase order loss within each chapter, not just visual board size.
             gap_target=MIN_GAP[chapter]+slot*.035
@@ -102,7 +103,7 @@ def build(source,seed):
             levels.append(level); signatures.add(author.geometry_signature(level))
             print(f"L{number}: arrows={count}, moves={level['par']}+{spec[9]}, gap={level['design']['orderGap']}, "
                   f"random clear={level['design']['randomClearRate']:.1%}, score={level['design']['structureScore']}",flush=True)
-    for before,after in zip(original['levels'][:10],levels[:10]):
+    for before,after in zip(original['levels'][:11],levels[:11]):
         for key in ('a','w','h','par','solution','guidedChains') + (('moves',) if before['id'] < 4 else ()):
             assert before.get(key)==after.get(key), (before['id'],key)
     for level in levels:

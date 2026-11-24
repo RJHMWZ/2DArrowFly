@@ -149,6 +149,17 @@ namespace HueRelay
         private LevelData[] levels;
         private string bestScoreKey = "cc_global_best_v1";
         public int LevelCount => levels != null ? levels.Length : 0;
+        public bool IsRuntimeDebugOpen
+        {
+            get
+            {
+#if UNITY_EDITOR || DEVELOPMENT_BUILD || (IVY_SDK_TT && TTSDK_LOG_DEBUG)
+                return runtimeDebugOpen;
+#else
+                return false;
+#endif
+            }
+        }
         public bool IsLastCampaignLevel => !Endless && LevelIndex == LevelCount - 1;
         private int par;
         private int hints => Inventory.Count(HuePowerUpKind.Hint);
@@ -372,11 +383,14 @@ namespace HueRelay
             mainMenu = FindObjectOfType<HueMainMenu>(true);
             if (mainMenu) mainMenu.gameObject.SetActive(true);
             BeginFromMenu();
+#if UNITY_EDITOR || DEVELOPMENT_BUILD || (IVY_SDK_TT && TTSDK_LOG_DEBUG)
+            runtimeDebugPanel = HueRuntimeDebugPanel.Attach(this, sceneView);
+#endif
         }
 
         private HueMainMenu mainMenu;
 
-        /// <summary>启动或从主菜单进入存档关卡；首次直接运行完整教学。</summary>
+        /// <summary>启动或从主菜单直接进入存档关卡，不再插入独立教学棋盘。</summary>
         public void BeginFromMenu()
         {
             if (!enabled || !root || LevelCount == 0) return;
@@ -388,13 +402,15 @@ namespace HueRelay
                 var raycaster = root.GetComponent<UnityEngine.UI.GraphicRaycaster>();
                 if (raycaster) raycaster.enabled = true;
             }
-            StartLevel(ResumeLevelIndex);
-            if (!HasSeenTutorial)
+            // Keep legacy tutorial gates satisfied for saves created before or after its removal.
+            if (!HasCompletedTutorial)
             {
-                resumeEndlessAfterTutorial = CampaignCompleted;
-                StartTutorial();
+                PlayerPrefs.SetInt(tutorialSeenKey, 1);
+                PlayerPrefs.Save();
             }
-            else if (CampaignCompleted)
+            resumeEndlessAfterTutorial = false;
+            StartLevel(ResumeLevelIndex);
+            if (CampaignCompleted)
                 StartEndless();
         }
 
@@ -699,6 +715,7 @@ namespace HueRelay
         /// <param name="bi">命中的箭头编号。</param>
         public void TapArrow(int bi)
         {
+            if (IsRuntimeDebugOpen) return;
             ResetIdleMoveGuide();
             telemetry?.FirstAction();
             if (IsPaused || refillOpen) return;
@@ -806,6 +823,9 @@ namespace HueRelay
         /// <param name="p">相对于整个界面的逻辑像素点击位置。</param>
         private void Pointer(Vector2 p)
         {
+#if UNITY_EDITOR || DEVELOPMENT_BUILD || (IVY_SDK_TT && TTSDK_LOG_DEBUG)
+            if (runtimeDebugPanel && runtimeDebugPanel.BlocksPointer(p, pixelScale)) return;
+#endif
             telemetry?.FirstAction();
             ResetIdleMoveGuide();
             if (adBreakActive || IsPaused || refillOpen || Time.frameCount == resumedFrame || Time.frameCount == tutorialAdvancedFrame || generating)
@@ -958,6 +978,7 @@ namespace HueRelay
         private void Update()
         {
             TickTelemetry();
+            if (IsRuntimeDebugOpen) return;
             UpdateIdleMoveGuide();
             if (adBreakActive || revivePending) return;
             if (mainMenu && mainMenu.IsVisible) return;

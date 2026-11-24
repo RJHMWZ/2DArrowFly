@@ -13,7 +13,7 @@ namespace HueRelay
         {
             if (telemetry == null || P == null) return;
             bool playing = tut < 0 && !Over && !generating && !(mainMenu && mainMenu.IsVisible);
-            bool active = playing && !IsPaused && !refillOpen && !adBreakActive && !(Ads && Ads.IsBusy)
+            bool active = playing && !IsPaused && !IsRuntimeDebugOpen && !refillOpen && !adBreakActive && !(Ads && Ads.IsBusy)
                 && analyticsFocused && !analyticsPaused && analyticsHostVisible;
             telemetry.Tick(playing, active, LevelIndex + 1, Endless, Score, Taps, Mathf.Max(0, Limit - Taps), HueEngine.PC(Mask));
         }

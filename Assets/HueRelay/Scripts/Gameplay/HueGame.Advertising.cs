@@ -68,7 +68,7 @@ namespace HueRelay
             if (!Ads || !Over || tut >= 0 || !HasSeenTutorial) { continued(); return; }
             adBreakActive = true; adBreakStarted = Time.unscaledTime;
             int token = ++adNavigation;
-            Ads.TryInterstitial(new HueAdBreakContext { won = Won, beforeResult = true,
+            Ads.TryResultVideo(new HueAdBreakContext { won = Won, beforeResult = true,
                 tutorialActive = tut >= 0, endless = Endless, levelNumber = LevelIndex + 1 }, () =>
             {
                 if (!this || token != adNavigation) return;

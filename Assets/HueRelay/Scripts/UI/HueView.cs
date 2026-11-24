@@ -240,7 +240,7 @@ namespace HueRelay
                 if (!movesChip) movesChip = FindImage(head, "MovesChip");
             }
             if (!boardBackground) boardBackground = FindImage(boardFrame, "BoardBackground");
-            if (!resultBackdrop) resultBackdrop = FindImage(stage, "ResultBackdrop");
+            if (!resultBackdrop) resultBackdrop = FindImage(canvas ? canvas.transform : stage, "ResultBackdrop");
             if (!victoryFlash) victoryFlash = FindImage(transform, "VictoryFlash");
             if (!tutorialBackground) tutorialBackground = FindImage(tutorialGroup ? tutorialGroup.transform : null, "TutorialBackdrop");
         }
@@ -731,13 +731,24 @@ namespace HueRelay
             string detail, string primary, string secondary, bool revivePending = false, bool reviveUnavailable = false)
         {
             if (!resultStyleCaptured) MatchResultButtonStyle();
+            // Both results sit above the whole game canvas, with the dimmer behind the card.
+            var backdropRect = resultBackdrop.rectTransform;
+            if (backdropRect.parent != canvas.transform) backdropRect.SetParent(canvas.transform, false);
+            if (resultGroup.transform.parent != canvas.transform) resultGroup.transform.SetParent(canvas.transform, false);
+            backdropRect.anchorMin = Vector2.zero; backdropRect.anchorMax = Vector2.one;
+            backdropRect.offsetMin = backdropRect.offsetMax = Vector2.zero;
+            backdropRect.localScale = Vector3.one;
+            if (resultGroup.transform.GetSiblingIndex() != canvas.transform.childCount - 1)
+                resultGroup.transform.SetAsLastSibling();
+            if (backdropRect.GetSiblingIndex() != canvas.transform.childCount - 2)
+                backdropRect.SetSiblingIndex(canvas.transform.childCount - 2);
             SetActive(resultBackdrop.gameObject, true);
             SetActive(resultGroup.gameObject, true);
             resultGroup.alpha = Mathf.Clamp01(easing);
             resultGroup.interactable = easing > .9f;
-            // Keep the input barrier, without a visible rectangle below the HUD.
+            // Darken the scene behind either result while keeping the card and its input clear.
             resultBackdrop.material = null;
-            resultBackdrop.color = new Color(.94f, .96f, 1, win ? 0 : .65f * easing);
+            resultBackdrop.color = new Color(.08f, .09f, .12f, .55f * easing);
             float width = Mathf.Min(340, stage.rect.width / scale - 16);
             float detailWidth = width - 48;
             resultDetail.fontSize = 13;

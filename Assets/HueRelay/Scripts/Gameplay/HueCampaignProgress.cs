@@ -25,7 +25,7 @@ namespace HueRelay
             if (unlocked <= next) return;
             next = unlocked; Save();
         }
-#if UNITY_EDITOR
+#if UNITY_EDITOR || DEVELOPMENT_BUILD || (IVY_SDK_TT && TTSDK_LOG_DEBUG)
         public void DebugSetProgress(int nextLevelIndex)
         {
             next = Mathf.Clamp(nextLevelIndex, 0, levelCount);

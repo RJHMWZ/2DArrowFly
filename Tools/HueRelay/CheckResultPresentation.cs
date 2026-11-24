@@ -116,7 +116,14 @@ public static class HueResultPresentationChecks
                         "Authored moves text must fit its pill.");
                     Require(Mathf.Abs(view.HudBounds(view.best.rectTransform).center.x - view.HudBounds(view.levelTitle.rectTransform).center.x) < .01f
                         && view.best.alignment == TextAnchor.MiddleCenter, "Best score must be centered under the level title.");
-                    Require(!win || view.resultBackdrop.color.a==0,"Victory must not darken the stage.");
+                    Require(view.resultBackdrop.color.a >= .5f && view.resultBackdrop.color.r < .15f
+                        && view.resultBackdrop.color.g < .15f && view.resultBackdrop.color.b < .15f,
+                        "Both results must use a translucent dark backdrop.");
+                    var backdropBounds = view.HudBounds(view.resultBackdrop.rectTransform);
+                    var canvasBounds = ((RectTransform)view.canvas.transform).rect;
+                    Require(Mathf.Abs(backdropBounds.width - canvasBounds.width) < .1f
+                        && Mathf.Abs(backdropBounds.height - canvasBounds.height) < .1f,
+                        "Result backdrop must cover the whole game canvas.");
                     Require(view.resultPrimary.IsInteractable(),"Settled primary button must accept input.");
                     Require(view.resultSecondary.gameObject.activeSelf,"Home must be visible for both results.");
                     var detailRect = view.resultDetail.rectTransform;
@@ -131,7 +138,7 @@ public static class HueResultPresentationChecks
                 }
                 UnityEngine.Object.DestroyImmediate(camera.gameObject); rt.Release(); UnityEngine.Object.DestroyImmediate(rt);
             }
-            File.WriteAllText("Logs/ResultPresentation/checks.txt","PASS: authored HUD positions/sizes preserved after content and layout updates; bindings, transparent victory, button states, non-overlapping details, bounded progress; portrait, short portrait and landscape rendered.\n");
+            File.WriteAllText("Logs/ResultPresentation/checks.txt","PASS: authored HUD positions/sizes preserved after content and layout updates; bindings, full-canvas dark victory/failure backdrops, button states, non-overlapping details, bounded progress; portrait, short portrait and landscape rendered.\n");
             EditorApplication.Exit(0);
         }
         catch(Exception e) { Debug.LogException(e); EditorApplication.Exit(1); }

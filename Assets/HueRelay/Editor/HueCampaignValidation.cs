@@ -49,6 +49,9 @@ namespace HueRelay.Editor
                     }
                     Require(signatures.Add(Signature(level)), prefix + "Duplicate/recolored/reflected layout.");
                     if (index >= 10) Require(level.a.Select(a => a.c).Distinct().Count() == 3, prefix + "Missing third color.");
+                    if (index >= 3 && index <= 10)
+                        Require(level.a.Length >= 9 && level.a.Select(a => a.c).Distinct().Count() == 3,
+                            prefix + "Early challenge must use at least nine arrows and all three colors.");
                     if (previous != null)
                     {
                         Require(level.a.Length >= previous.a.Length && level.difficulty > previous.difficulty, prefix + "Difficulty must increase.");

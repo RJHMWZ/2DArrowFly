@@ -136,6 +136,9 @@ namespace HueRelay
                 { "campaign_id", campaign }, { "app_version", Application.version },
                 { "timestamp_utc", DateTime.UtcNow.ToString("o") }, { "schema_version", 1 }
             };
+#if UNITY_EDITOR || DEVELOPMENT_BUILD || (IVY_SDK_TT && TTSDK_LOG_DEBUG)
+            data["debug_build"] = 1;
+#endif
             if (attempt != null)
             {
                 data["level"] = attempt.level; data["mode"] = attempt.mode; data["attempt_id"] = attempt.id;

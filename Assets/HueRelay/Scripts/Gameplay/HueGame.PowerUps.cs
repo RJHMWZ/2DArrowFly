@@ -41,7 +41,7 @@ namespace HueRelay
 
         // Lock tools as soon as moves run out or the last arrow clears, including
         // settling before Finish and the entire result-panel lifetime.
-        private bool PowerUpsReady => !IsPaused && !refillOpen && !Over && !sheetVisible && Taps < Limit
+        private bool PowerUpsReady => !IsPaused && !IsRuntimeDebugOpen && !refillOpen && !Over && !sheetVisible && Taps < Limit
             && Mask != 0 && !generating && tut < 0 && !UsesChainGuide && Idle;
         public bool CanHint => PowerUpsReady && !IsChoosingErase && hints > 0;
         public bool CanErase => PowerUpsReady && eraseUses > 0;

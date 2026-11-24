@@ -33,7 +33,7 @@ def main():
     before=json.loads(args.before.read_text(encoding='utf-8'))['levels'] if args.before else None
     levels=json.loads(DATA.read_text(encoding='utf-8'))['levels']
     assert len(levels)==100
-    for old,new in zip(before[:10] if before else [],levels[:10]):
+    for old,new in zip(before[:3] if before else [],levels[:3]):
         for key in ('w','h','a','par','solution','guidedChains') + (('moves',) if new['id'] < 4 else ()):
             assert old.get(key)==new.get(key),(new['id'],key)
     signatures=set()
@@ -51,7 +51,7 @@ def main():
     old_stats=stats(before,0xA02123,512) if before else None
     new_stats=stats(levels,0xA02123,512)
     print('PASS: 100 unique valid routes; inventory removed from level data; increasing order-loss selection thresholds.'
-          + (' First ten layouts/routes and first three teaching budgets preserved.' if before else ''))
+          + (' First three introductory levels preserved.' if before else ''))
     print('Independent 512-rollout legal random policy per level; these are NOT human pass rates:')
     print('Levels | old/new arrows avg | old/new order loss avg | old/new random clear rate | old/new greedy clear rate (128 trials)'
           if before else 'Levels | arrows avg | order loss avg | random clear rate | greedy clear rate (128 trials)')

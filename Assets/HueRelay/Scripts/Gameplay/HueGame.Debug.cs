@@ -1,15 +1,55 @@
-#if UNITY_EDITOR
+#if UNITY_EDITOR || DEVELOPMENT_BUILD || (IVY_SDK_TT && TTSDK_LOG_DEBUG)
 using System;
 using UnityEngine;
 
 namespace HueRelay
 {
-    // Editor-only commands use the active inventory, including validation saves.
+    // Debug-only commands use the active inventory, including validation saves.
     public sealed partial class HueGame
     {
         public bool DebugCanEdit => enabled && P != null && !generating && !adBreakActive
             && !IsPowerUpAdPending && !revivePending && !(Ads && Ads.IsBusy);
         public int DebugBestScore => bestScore;
+        private bool runtimeDebugOpen;
+        private bool runtimeDebugWasPaused;
+        private float runtimeDebugStarted;
+        private HueRuntimeDebugPanel runtimeDebugPanel;
+
+        public void DebugSetPanelOpen(bool open)
+        {
+            if (open == runtimeDebugOpen) return;
+            if (open)
+            {
+                DebugRequireReady();
+                runtimeDebugStarted = Time.unscaledTime;
+                runtimeDebugWasPaused = IsPaused || refillOpen;
+                ResetIdleMoveGuide();
+            }
+            else
+            {
+                if (!runtimeDebugWasPaused) pausedDuration += Time.unscaledTime - runtimeDebugStarted;
+                resumedFrame = Time.frameCount;
+            }
+            runtimeDebugOpen = open;
+        }
+
+        public void DebugFreshStart()
+        {
+            DebugRequireReady();
+            DebugSetPanelOpen(false);
+            if (mainMenu) mainMenu.HideForGameplay();
+            if (tut >= 0) EndTutorial();
+            ResetGame();
+            campaignProgress.DebugSetProgress(0);
+            var config = PowerUpSettings;
+            Inventory.DebugSetCounts(config.initialHints, config.initialErasers, config.initialExtraMoves);
+            DebugResetBestScore();
+            PlayerPrefs.DeleteKey(tutorialSeenKey);
+            PlayerPrefs.DeleteKey(tutorialSeenKey + "_started");
+            PlayerPrefs.Save();
+            BeginFromMenu();
+            Render();
+        }
 
         private void DebugRequireReady()
         {

@@ -3,7 +3,7 @@ using UnityEngine;
 
 namespace HueRelay
 {
-    /// <summary>One ad at a time; no queued interstitials or loading waits at a level boundary.</summary>
+    /// <summary>One rewarded video at a time, shared by result breaks, refills and revives.</summary>
     [DisallowMultipleComponent]
     public sealed class HueAds : MonoBehaviour
     {
@@ -15,11 +15,12 @@ namespace HueRelay
         private Func<double> clock;
         private double foregroundSeconds;
         private bool focused = true, paused, hostVisible = true, bound;
-        private readonly bool[] loading = new bool[2];
-        private readonly double[] loadStarted = new double[2], nextLoad = new double[2];
+        private readonly bool[] loading = new bool[1];
+        private readonly double[] loadStarted = new double[1], nextLoad = new double[1];
         private int request;
         private bool pending, previousAudioPause;
         private HueAdFormat pendingFormat;
+        private bool pendingResultVideo;
         private double playbackStarted;
         private Action<HueAdOutcome> finished;
         public bool IsBusy => pending;
@@ -38,7 +39,7 @@ namespace HueRelay
             Shutdown();
             game = owner; policy = settings; backend = provider; clock = time;
             foregroundSeconds = 0; pacing = new HueAdPacing(settings);
-            for (int i = 0; i < 2; i++) { loading[i] = false; nextLoad[i] = 0; }
+            for (int i = 0; i < loading.Length; i++) { loading[i] = false; nextLoad[i] = 0; }
             backend.VisibilityChanged += OnHostVisibility;
             BindRewarded();
         }
@@ -75,7 +76,6 @@ namespace HueRelay
             if (!policy.adsEnabled || !focused || paused || !hostVisible || game.TutorialStepIndex >= 0
                 || !game.HasSeenTutorial || game.IsPaused) return;
             Prepare(HueAdFormat.Rewarded, policy.RewardedConfigured);
-            Prepare(HueAdFormat.Interstitial, policy.InterstitialConfigured);
         }
 
         private void Prepare(HueAdFormat format, bool configured)
@@ -122,12 +122,21 @@ namespace HueRelay
         }
 
         public void TryInterstitial(HueAdBreakContext context, Action continued)
+            => TryResultVideo(context, continued);
+
+        public void TryResultVideo(HueAdBreakContext context, Action continued)
         {
             if (backend == null || pacing == null || !isActiveAndEnabled) { continued(); return; }
-            string blocked = pacing.InterstitialBlock(Now, context, pending, backend.IsReady(HueAdFormat.Interstitial));
-            if (blocked != null) { Trace("Interstitial:skip:" + blocked); continued(); return; }
+            string blocked = pacing.InterstitialBlock(Now, context, pending, backend.IsReady(HueAdFormat.Rewarded));
+            if (blocked != null)
+            {
+                // A missed third-win opportunity is skipped, never queued onto the next level.
+                if (blocked == "not_loaded") pacing.RecordInterstitialAttempt(Now);
+                Trace("Rewarded:result_win:skip:" + blocked); continued(); return;
+            }
             pacing.RecordInterstitialAttempt(Now);
-            Show(HueAdFormat.Interstitial, _ => continued());
+            // This replaces the former interstitial. It deliberately grants no reward.
+            Show(HueAdFormat.Rewarded, _ => continued(), true);
         }
 
         public void TryRevive(Action<bool> completed)
@@ -143,12 +152,13 @@ namespace HueRelay
             Show(HueAdFormat.Rewarded, result => completed(result == HueAdOutcome.Completed));
         }
 
-        private void Show(HueAdFormat format, Action<HueAdOutcome> completed)
+        private void Show(HueAdFormat format, Action<HueAdOutcome> completed, bool resultVideo = false)
         {
             pending = true; pendingFormat = format; finished = completed; playbackStarted = Now;
+            pendingResultVideo = resultVideo;
             int token = ++request;
             previousAudioPause = AudioListener.pause; AudioListener.pause = true;
-            Trace(format + ":show_requested");
+            Trace(format + (resultVideo ? ":result_win" : "") + ":show_requested");
             try { backend.Show(format, result => Finish(token, result)); }
             catch (Exception e) { Trace(format + ":show_failed:" + e.Message); Finish(token, HueAdOutcome.Failed); }
         }
@@ -156,14 +166,15 @@ namespace HueRelay
         private void Finish(int token, HueAdOutcome outcome)
         {
             if (!pending || token != request) return;
-            var callback = finished; var format = pendingFormat;
-            finished = null; pending = false; request++;
+            var callback = finished; var format = pendingFormat; bool resultVideo = pendingResultVideo;
+            finished = null; pending = false; pendingResultVideo = false; request++;
             AudioListener.pause = previousAudioPause;
             ReleaseAd(format); loading[(int)format] = false;
-            nextLoad[(int)format] = Now + (outcome == HueAdOutcome.Completed || outcome == HueAdOutcome.Cancelled ? 1 : policy.RetryDelay);
-            if (format == HueAdFormat.Rewarded) pacing.RecordRewardedActivity(Now);
-            else if (outcome == HueAdOutcome.Completed) pacing.RecordInterstitialClosed(Now);
-            Trace(format + ":finished:" + outcome);
+            nextLoad[(int)format] = Now + (outcome == HueAdOutcome.Completed || outcome == HueAdOutcome.Cancelled
+                ? (resultVideo ? 0 : 1) : policy.RetryDelay);
+            if (!resultVideo) pacing.RecordRewardedActivity(Now);
+            else if (outcome == HueAdOutcome.Completed || outcome == HueAdOutcome.Cancelled) pacing.RecordInterstitialClosed(Now);
+            Trace(format + (resultVideo ? ":result_win" : "") + ":finished:" + outcome);
             callback?.Invoke(outcome);
         }
 
