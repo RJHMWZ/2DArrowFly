@@ -83,12 +83,22 @@ namespace HueRelay
             title.text = profile ? "Revisit from Profile" : "Add to Home Screen";
             firstStep.text = profile ? "Open your TikTok profile\nmenu" : "Tap Add";
             secondStep.text = profile ? "Open Minis, then this game" : "Add to your home screen";
-            thirdStep.text = state.claimed ? "Reward received" : profile ? "Claim 1 hint" : "Claim 2 hints";
+            thirdStep.text = state.claimed ? "Reward received" : profile ? "Claim 1 Move tool" : "Claim 2 Move tools";
             rewardLabel.text = "+" + HueRetention.RewardAmount(selected);
+            // Keep an already-open scene in sync with the actual Move power-up artwork.
+            var sourceIcon = menu && menu.view && menu.view.extraMovesButton
+                ? menu.view.extraMovesButton.transform.Find("Icon")?.GetComponent<Image>() : null;
+            if (rewardIcon && sourceIcon)
+            {
+                rewardIcon.sprite = sourceIcon.sprite;
+                rewardIcon.color = sourceIcon.color;
+                rewardIcon.preserveAspect = true;
+                rewardIcon.name = "MoveIcon";
+            }
             if (profilePreview) profilePreview.gameObject.SetActive(profile);
             if (minisPreview) minisPreview.gameObject.SetActive(profile);
             message.text = !Application.isPlaying ? ""
-                : state.claimed ? (string.IsNullOrEmpty(state.message) ? "Your hints are ready for your next puzzle." : state.message)
+                : state.claimed ? (string.IsNullOrEmpty(state.message) ? "Your Move tools are ready for your next puzzle." : state.message)
                 : !state.available ? "Available in TikTok on supported devices.\nYou can keep playing as usual."
                 : !string.IsNullOrEmpty(state.message) ? state.message
                 : !state.rewardAvailable ? "Reward checks are unavailable on this device."

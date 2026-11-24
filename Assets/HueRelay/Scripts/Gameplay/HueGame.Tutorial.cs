@@ -110,6 +110,8 @@ namespace HueRelay
         {
             if (!enabled || !root || P == null || LevelCount == 0 || !Idle || refillOpen)
                 return;
+            TrackGameEvent("tutorial_start");
+            ResetIdleMoveGuide();
             CancelErase();
             var sn = Over ? null : new Snapshot
             {
@@ -164,6 +166,8 @@ namespace HueRelay
         public void EndTutorial()
         {
             if (tut < 0) return;
+            TrackGameEvent("tutorial_complete");
+            ResetIdleMoveGuide();
             bool enterEndless = resumeEndlessAfterTutorial;
             resumeEndlessAfterTutorial = false;
             PlayerPrefs.SetInt(tutorialSeenKey, 1);

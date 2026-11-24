@@ -83,8 +83,8 @@ namespace HueRelay
                 state.opening = false;
                 if (state.claimed) { Changed?.Invoke(); return; }
                 state.message = result == HueRetentionResult.Completed
-                    ? (kind == HueRetentionKind.Profile ? "Return through Profile > Minis to get your hint."
-                        : "Open the game from your home screen to get your hints.")
+                    ? (kind == HueRetentionKind.Profile ? "Return through Profile > Minis to get your Move tool."
+                        : "Open the game from your home screen to get your Move tools.")
                     : "Not completed. You can try again or keep playing.";
                 Changed?.Invoke();
                 // Only the separate mission-reward response can authorize the grant.
@@ -112,7 +112,7 @@ namespace HueRelay
                         state.opening = false;
                         state.openRequest++;
                         state.message = "+" + RewardAmount(kind) + (kind == HueRetentionKind.Profile
-                            ? " hint added. Welcome back!" : " hints added. Welcome back!");
+                            ? " Move tool added. Welcome back!" : " Move tools added. Welcome back!");
                     }
                 }
                 else if (result == HueRetentionResult.Failed)

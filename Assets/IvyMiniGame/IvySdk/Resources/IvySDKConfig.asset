@@ -42,7 +42,7 @@ MonoBehaviour:
     rewardedAds: []
   tt:
     enable: 1
-    appName: Combo Arrow
+    appName: Arrow Tones！
     appId: 21008
     channel: TT
     versionCode: 1

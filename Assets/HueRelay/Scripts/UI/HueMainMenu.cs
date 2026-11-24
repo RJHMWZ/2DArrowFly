@@ -47,6 +47,10 @@ namespace HueRelay
             if (!menuCanvas) menuCanvas = GetComponent<Canvas>();
             if (!scaler) scaler = GetComponent<CanvasScaler>();
             if (!logo) logo = transform.Find("TitleLogoPlaceholder") as RectTransform;
+            // Also refresh the node label in scenes already open during a logo asset rename.
+            var titleImage = logo ? logo.GetComponentInChildren<Image>(true) : null;
+            if (titleImage && titleImage.sprite && titleImage.name != titleImage.sprite.name)
+                titleImage.name = titleImage.sprite.name;
             if (!levelButton) levelButton = Find<Button>("LevelButton");
             if (!levelLabel) levelLabel = Find<Text>("LevelButton/Label");
             if (!settingsSafeArea) settingsSafeArea = transform.Find("SettingsSafeArea") as RectTransform;

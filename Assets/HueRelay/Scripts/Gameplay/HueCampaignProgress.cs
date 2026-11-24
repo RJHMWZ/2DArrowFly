@@ -25,6 +25,13 @@ namespace HueRelay
             if (unlocked <= next) return;
             next = unlocked; Save();
         }
+#if UNITY_EDITOR
+        public void DebugSetProgress(int nextLevelIndex)
+        {
+            next = Mathf.Clamp(nextLevelIndex, 0, levelCount);
+            Save();
+        }
+#endif
         private void Save() { PlayerPrefs.SetInt(key, next); PlayerPrefs.Save(); }
     }
 }

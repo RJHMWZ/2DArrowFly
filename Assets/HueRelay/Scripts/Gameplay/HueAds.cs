@@ -59,7 +59,7 @@ namespace HueRelay
         }
         private void OnApplicationFocus(bool value) { focused = value; }
         private void OnApplicationPause(bool value) { paused = value; }
-        private void OnHostVisibility(bool value) { hostVisible = value; }
+        private void OnHostVisibility(bool value) { hostVisible = value; if (game) game.TelemetryHostVisibility(value); }
 
         // Deterministic clock/backend injection keeps checks independent of ads and player saves.
         public void Tick()
@@ -156,6 +156,7 @@ namespace HueRelay
 
         private void Trace(string value)
         {
+            if (game) game.TrackAdEvent(value);
             if (policy && policy.logDecisions) Debug.Log("[HueAds] " + value, this);
             try { Diagnostic?.Invoke(value); } catch (Exception e) { Debug.LogWarning("Ad diagnostic listener failed: " + e.Message, this); }
         }

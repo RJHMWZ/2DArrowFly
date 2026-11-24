@@ -63,31 +63,34 @@ namespace HueRelay.Editor
             {
                 PlayerPrefs.DeleteKey(Key);
                 var inventory = new HuePowerUpInventory(config, Key); field.SetValue(game, inventory);
-                int baseline = game.HintsRemaining;
+                int baseline = game.ExtraMovesRemaining;
+                int hintsBefore = game.HintsRemaining, erasersBefore = game.ErasersRemaining;
                 var platform = new Platform(); retention.Initialize(platform);
                 retention.Activate(HueRetentionKind.Profile);
                 retention.Activate(HueRetentionKind.Profile);
                 Require(platform.opens == 1, "Repeated taps opened two platform flows.");
                 platform.opened(HueRetentionResult.Completed);
-                Require(game.HintsRemaining == baseline, "Navigation success granted a reward without eligibility.");
+                Require(game.ExtraMovesRemaining == baseline, "Navigation success granted a reward without eligibility.");
                 platform.Query(HueRetentionKind.Profile)(HueRetentionResult.Ineligible);
-                Require(game.HintsRemaining == baseline, "Ineligible response granted hints.");
+                Require(game.ExtraMovesRemaining == baseline, "Ineligible response granted Move tools.");
                 retention.Refresh();
                 platform.Query(HueRetentionKind.Profile)(HueRetentionResult.Failed);
-                Require(game.HintsRemaining == baseline, "Failed qualification request granted hints.");
+                Require(game.ExtraMovesRemaining == baseline, "Failed qualification request granted Move tools.");
                 retention.Refresh();
                 var profileCallback = platform.Query(HueRetentionKind.Profile);
                 profileCallback(HueRetentionResult.Eligible); profileCallback(HueRetentionResult.Eligible);
-                Require(game.HintsRemaining == baseline + 1, "Profile reward missing or duplicated.");
+                Require(game.ExtraMovesRemaining == baseline + 1, "Profile reward missing or duplicated.");
                 platform.Query(HueRetentionKind.Shortcut)(HueRetentionResult.Ineligible);
                 retention.Activate(HueRetentionKind.Shortcut);
                 platform.opened(HueRetentionResult.Completed);
-                Require(game.HintsRemaining == baseline + 1, "Adding a shortcut granted hints without eligibility.");
+                Require(game.ExtraMovesRemaining == baseline + 1, "Adding a shortcut granted Move tools without eligibility.");
                 var shortcutCallback = platform.Query(HueRetentionKind.Shortcut);
                 shortcutCallback(HueRetentionResult.Eligible); shortcutCallback(HueRetentionResult.Eligible);
-                Require(game.HintsRemaining == baseline + 3, "Shortcut reward missing or duplicated.");
+                Require(game.ExtraMovesRemaining == baseline + 3, "Shortcut reward missing or duplicated.");
+                Require(game.HintsRemaining == hintsBefore && game.ErasersRemaining == erasersBefore,
+                    "Retention reward changed Hint or Eraser inventory.");
                 var reloaded = new HuePowerUpInventory(config, Key);
-                Require(reloaded.Count(HuePowerUpKind.Hint) == baseline + 3
+                Require(reloaded.Count(HuePowerUpKind.ExtraMoves) == baseline + 3
                     && reloaded.HasClaimedRetentionReward(HueRetentionKind.Profile)
                     && reloaded.HasClaimedRetentionReward(HueRetentionKind.Shortcut), "Atomic reward save did not survive reloading.");
                 Require(!reloaded.TryClaimRetentionReward(HueRetentionKind.Profile)
@@ -113,9 +116,9 @@ namespace HueRelay.Editor
                 var oldQuery = resumed.Query(HueRetentionKind.Profile);
                 resumed.Resume(); typeof(HueRetention).GetMethod("Update", Private).Invoke(retention, null);
                 oldQuery(HueRetentionResult.Eligible);
-                Require(game.HintsRemaining == 7, "An obsolete pre-resume callback granted a reward.");
+                Require(game.HintsRemaining == 7 && game.ExtraMovesRemaining == 4, "An obsolete pre-resume callback granted a reward.");
                 resumed.Query(HueRetentionKind.Profile)(HueRetentionResult.Eligible);
-                Require(game.HintsRemaining == 8, "A resumed eligible launch failed to grant its reward.");
+                Require(game.HintsRemaining == 7 && game.ExtraMovesRemaining == 5, "A resumed eligible launch failed to grant its Move reward.");
 
                 // A missing callback must time out without locking subsequent actions.
                 var timeout = new Platform(); retention.Initialize(timeout);
@@ -125,17 +128,25 @@ namespace HueRelay.Editor
                 typeof(HueRetention).GetMethod("Update", Private).Invoke(retention, null);
                 Require(!retention.State(HueRetentionKind.Shortcut).opening, "Missing callback locked the entry.");
                 lateOpen(HueRetentionResult.Completed);
-                Require(!retention.State(HueRetentionKind.Shortcut).opening && game.HintsRemaining == 8,
+                Require(!retention.State(HueRetentionKind.Shortcut).opening && game.HintsRemaining == 7 && game.ExtraMovesRemaining == 5,
                     "A late navigation callback changed the reward balance.");
 
+                // Use an unclaimed UI fixture after the receipt/legacy checks above.
+                PlayerPrefs.SetString(Key, "{\"version\":1,\"hints\":7,\"erasers\":5,\"extraMoves\":5}");
+                field.SetValue(game, new HuePowerUpInventory(config, Key));
                 var menu = UnityEngine.Object.FindObjectOfType<HueMainMenu>(true);
                 var ui = menu.GetComponent<HueRetentionMenu>();
                 bool visible = menu.IsVisible;
                 menu.Show(); ui.profileButton.onClick.Invoke();
                 Require(ui.IsOpen && ui.closeButton.interactable, "Profile guide did not open or cannot be dismissed.");
+                Require(ui.thirdStep.text == "Claim 1 Move tool" && ui.rewardLabel.text == "+1"
+                    && ui.rewardIcon.sprite == menu.view.extraMovesButton.transform.Find("Icon").GetComponent<UnityEngine.UI.Image>().sprite,
+                    "Profile reward copy/icon did not use Move tools.");
                 menu.Play(); Require(menu.IsVisible, "Play bypassed the guide overlay.");
                 ui.closeButton.onClick.Invoke(); Require(!ui.IsOpen, "Close did not dismiss the guide.");
                 ui.shortcutButton.onClick.Invoke(); Require(ui.IsOpen, "Shortcut guide did not open.");
+                Require(ui.thirdStep.text == "Claim 2 Move tools" && ui.rewardLabel.text == "+2",
+                    "Shortcut reward copy did not use Move tools.");
                 ui.laterButton.onClick.Invoke(); Require(!ui.IsOpen, "Maybe later did not dismiss the guide.");
                 ui.OpenProfile(); menu.OpenSettings();
                 Require(!ui.IsOpen && menu.settingsOverlay.activeSelf, "Settings overlapped the retention guide.");

@@ -30,6 +30,8 @@ namespace HueRelay
 
         public void ToggleErase()
         {
+            TrackGameEvent("powerup_click", "powerup", "eraser");
+            ResetIdleMoveGuide();
             if (IsChoosingErase)
             {
                 IsChoosingErase = false;
@@ -49,6 +51,7 @@ namespace HueRelay
             if (!IsChoosingErase || !CanErase || id < 0 || id >= P.n || (Mask & (1 << id)) == 0) return;
             IsChoosingErase = false;
             if (!Inventory.TrySpend(HuePowerUpKind.Eraser)) return;
+            TrackGameEvent("powerup_use", "powerup", "eraser");
             erasingArrow = id;
             now = eraseStarted = GameTime;
             eraseDuration = Mathf.Clamp((P.arrs[id].cells.Length - 1) * .08f, .65f, 1.25f);
@@ -78,9 +81,13 @@ namespace HueRelay
 
         public void AddMoves()
         {
+            TrackGameEvent("powerup_click", "powerup", "extra_moves", "from_idle_guide",
+                idleMoveGuide || moveGuideInputFrame == Time.frameCount ? 1 : 0);
+            ResetIdleMoveGuide();
             if (!CanRequestExtraMoves) return;
             if (extraMoveUses == 0) { OpenPowerUpRefill(HuePowerUpKind.ExtraMoves); return; }
             if (!Inventory.TrySpend(HuePowerUpKind.ExtraMoves)) return;
+            TrackGameEvent("powerup_use", "powerup", "extra_moves");
             Limit += 3;
             finishAt = -1;
             Pop(1.12f);

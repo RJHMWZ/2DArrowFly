@@ -38,8 +38,10 @@ namespace HueRelay.Editor
             {
                 PlayerPrefs.DeleteKey(TestKey);
                 var fresh = new HuePowerUpInventory(game.PowerUpSettings,TestKey);
-                Require(fresh.Count(HuePowerUpKind.Hint)==1 && fresh.Count(HuePowerUpKind.Eraser)==1
-                    && fresh.Count(HuePowerUpKind.ExtraMoves)==1,"First launch must grant one of each tool.");
+                Require(fresh.Count(HuePowerUpKind.Hint)==0 && fresh.Count(HuePowerUpKind.Eraser)==0
+                    && fresh.Count(HuePowerUpKind.ExtraMoves)==0,"First launch must start with no tools.");
+                // Seed a spend fixture after checking the real first-launch balance.
+                fresh.DebugSetCounts(1,1,1);
                 typeof(HueGame).GetField("inventory",Flags).SetValue(game,fresh);
                 game.StartLevel(3); game.Hint();
                 Require(game.HintsRemaining==0,"Hint did not spend global inventory.");
@@ -79,7 +81,7 @@ namespace HueRelay.Editor
                 {
                     InstallInventory(game,0,0,0); game.StartLevel(3); Draw(game);
                     Button(view,kind).onClick.Invoke(); var panel=Panel(view);
-                    Require(panel.gameObject.activeSelf && panel.amountLabel.text=="+2"
+                    Require(panel.gameObject.activeSelf && panel.amountLabel.text=="+1"
                         && panel.itemIcon.sprite==Button(view,kind).transform.Find("Icon").GetComponent<Image>().sprite,
                         "Refill icon/quantity is incorrect for "+kind);
                     int before=requests, limit=game.Limit;
@@ -91,14 +93,14 @@ namespace HueRelay.Editor
                     Require(game.IsPowerUpRefillOpen && !game.IsPowerUpAdPending && Count(game,kind)==0,
                         "Failure/cancellation or a stale callback granted an item.");
                     panel.watchButton.onClick.Invoke(); var success=callback; success(true); success(true);
-                    Require(!game.IsPowerUpRefillOpen && Count(game,kind)==2 && game.Limit==limit && game.Taps==0,
-                        "Completed ad must add exactly two to the selected inventory without auto-using it.");
+                    Require(!game.IsPowerUpRefillOpen && Count(game,kind)==1 && game.Limit==limit && game.Taps==0,
+                        "Completed ad must add exactly one to the selected inventory without auto-using it.");
                     foreach(HuePowerUpKind other in Enum.GetValues(typeof(HuePowerUpKind)))
                         if(other!=kind) Require(Count(game,other)==0,"Ad granted the wrong tool.");
                     game.Retry(); game.StartLevel(10);
-                    Require(Count(game,kind)==2,"Reward was lost/reset on retry or next level.");
+                    Require(Count(game,kind)==1,"Reward was lost/reset on retry or next level.");
                     var saved=new HuePowerUpInventory(game.PowerUpSettings,TestKey);
-                    Require(saved.Count(kind)==2,"Reward was not persisted.");
+                    Require(saved.Count(kind)==1,"Reward was not persisted.");
                 }
                 InstallInventory(game,0,0,0); game.StartLevel(3); game.Hint(); game.WatchPowerUpAd();
                 var late=callback; game.Retry(); late(true);
@@ -117,9 +119,9 @@ namespace HueRelay.Editor
                 Require(game.HintsRemaining==0 && game.IsPowerUpRefillOpen && !game.IsPowerUpAdPending,
                     "Unavailable ad granted a reward or locked the UI.");
                 config.simulateAdsInEditor=true; game.WatchPowerUpAd();
-                Require(game.HintsRemaining==2 && !game.IsPowerUpRefillOpen,"Explicit Editor simulation did not work.");
+                Require(game.HintsRemaining==1 && !game.IsPowerUpRefillOpen,"Explicit Editor simulation did not work.");
                 config.initialHints=99;
-                Require(new HuePowerUpInventory(config,TestKey).Count(HuePowerUpKind.Hint)==2,
+                Require(new HuePowerUpInventory(config,TestKey).Count(HuePowerUpKind.Hint)==1,
                     "Changing initial gifts replenished an existing save.");
                 InstallInventory(game,0,0,0);
                 Require(new HuePowerUpInventory(config,TestKey).Count(HuePowerUpKind.Hint)==0,
@@ -128,7 +130,7 @@ namespace HueRelay.Editor
             finally { configField.SetValue(game,original); UnityEngine.Object.DestroyImmediate(config); }
             InstallInventory(game,3,3,3); game.StartLevel(0);
             Directory.CreateDirectory("Logs/PowerUps");
-            File.WriteAllText("Logs/PowerUps/checks.txt","PASS: first-launch 1/1/1; no reset on retry/level/menu/tutorial/reload; all three empty icons clickable; modal blocks input and clock; correct icon/+2; pending request deduplication; failed/cancelled/duplicate/late callbacks grant nothing; completion pays selected item exactly once and persists; no auto-use; missing adapter safe; Editor simulation; config edits do not repeat gifts.\n");
+            File.WriteAllText("Logs/PowerUps/checks.txt","PASS: first-launch 0/0/0; no reset on retry/level/menu/tutorial/reload; all three empty icons clickable; modal blocks input and clock; correct icon/+1; pending request deduplication; failed/cancelled/duplicate/late callbacks grant nothing; completion pays selected item exactly once and persists; no auto-use; missing adapter safe; Editor simulation; config edits do not repeat gifts.\n");
             phase=2; return true;
         }
     }

@@ -1,0 +1,18 @@
+Arrow Tones！主菜单 Logo
+
+图片：Assets/HueRelay/Art/Brand/ArrowTonesLogo.png
+生成方式：内置 image_gen，以旧 Logo 为编辑参考，生成透明 PNG；保留生成像素及 Alpha。
+风格：保留深蓝、亮蓝与橙色交错箭头，以及圆润粗体双行文字；文字改为 ARROW / TONES!。
+Unity 导入：Sprite (Single)，最大纹理 1024，无 Mipmap、关闭读写，不拦截点击。
+默认显示：HueMainMenu 的 Logo Size = 280 × 140 逻辑像素，保持宽高比。
+场景：TitleLogoPlaceholder / ArrowTonesLogo 使用新图片。旧 Logo 文件已删除，新图片沿用原导入 GUID，保留场景引用。
+游戏显示名：Arrow Tones！；APP ID 21008；包名 com.combo.arrows.tt。
+激励视频：ad7709456718649395208；插屏：ad7709467162021726215。
+
+最终生成提示词：
+Use case: text-localization.
+Asset type: replacement production transparent PNG main-menu game logo.
+Input image: existing COMBO ARROW logo, the exact style reference and edit target.
+Primary request: rebrand this logo to the new exact game name "Arrow Tones！" using a two-line uppercase wordmark "ARROW" on the first line and "TONES!" on the second line. Exact spelling A R R O W / T O N E S !. The final mark must contain the exclamation mark after TONES. Do not include the old words COMBO or COMBO ARROW anywhere.
+Preserve the existing rounded heavy geometric sans-serif lettering, compact wide two-line lockup, dark navy #1C2040 first line, vivid periwinkle blue #4C63FF second line, and the interlocking orange #FF991A and blue directional arrows at the left. The two five-letter lines should balance naturally, with a small exclamation on the lower right. Preserve the clean casual puzzle-game look, crisp vector-like edges and subtle depth, strong readability at a 280 by 140 logical-pixel menu placement.
+Background: genuinely transparent alpha, including holes inside letters and around arrows. Keep all artwork fully visible with modest transparent margins, wide aspect ratio approximately 2:1. No new symbols, musical notes, slogan, border, badge, watermark, mockup or background. Produce one finished logo only.

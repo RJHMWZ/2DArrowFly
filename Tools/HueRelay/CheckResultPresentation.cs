@@ -1,4 +1,4 @@
-﻿// Run from Assets/Editor in an isolated copy with graphics enabled.
+// Run from Assets/Editor in an isolated copy with graphics enabled.
 using System;
 using System.IO;
 using System.Linq;
@@ -39,7 +39,7 @@ public static class HueResultPresentationChecks
                 float width = size.x, height = size.y;
                 float k = Mathf.Clamp(Mathf.Min(width / 390, height / 800), .75f, 3.5f);
                 float appW = Mathf.Min(width, 460 * k);
-                float y = (view.topPadding + view.toolbarHeight + view.sectionGap + view.HudHeight + view.sectionGap + view.ProgressLayoutHeight) * k;
+                float y = (view.topPadding + view.TopBarHeight + view.sectionGap + view.HudHeight + view.sectionGap + view.ProgressLayoutHeight) * k;
                 float h = view.PowerUpTop(height,k,0) - view.powerUpBoardGap*k-y;
                 var rt = new RenderTexture(size.x*2, size.y*2, 24);
                 var camera = new GameObject("PreviewCamera",typeof(Camera)).GetComponent<Camera>();

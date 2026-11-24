@@ -110,8 +110,8 @@ namespace HueRelay.Editor
             Hand("TapMinis", ui.minisPreview, 56, -45);
 
             ui.rewardGroup = Node("Reward", ui.card); Box(ui.rewardGroup, 0, -144, 100, 40);
-            ui.rewardIcon = Image("HintIcon", ui.rewardGroup, ink, false);
-            ui.rewardIcon.sprite = AssetDatabase.LoadAssetAtPath<Sprite>("Assets/HueRelay/Art/PowerUps/Hint.png");
+            ui.rewardIcon = Image("MoveIcon", ui.rewardGroup, Color.white, false);
+            ui.rewardIcon.sprite = AssetDatabase.LoadAssetAtPath<Sprite>("Assets/HueRelay/Art/PowerUps/ExtraMoves.png");
             ui.rewardIcon.preserveAspect = true; Box(ui.rewardIcon.rectTransform, -25, 0, 24, 30);
             ui.rewardLabel = Text("Amount", ui.rewardGroup, "+1", 22, ink, 19, 0, 62, 36);
             ui.message = Text("Status", ui.card, "", 11, HueGame.Mute, 0, -188, 278, 32);

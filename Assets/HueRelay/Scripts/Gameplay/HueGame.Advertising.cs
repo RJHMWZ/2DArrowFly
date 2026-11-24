@@ -12,22 +12,20 @@ namespace HueRelay
         public bool IsAdBreakActive => adBreakActive;
         private HueAds Ads => adController ? adController : (adController = GetComponent<HueAds>());
 
-        private void NavigateAfterResultAd(Action continued)
+        private void ShowResultAfterAd(Action continued)
         {
             if (adBreakActive) return;
-            if (!Ads || !Won || !sheetVisible || tut >= 0 || !HasCompletedTutorial) { continued(); return; }
+            if (!Ads || !Over || tut >= 0 || !HasCompletedTutorial) { continued(); return; }
             adBreakActive = true; adBreakStarted = Time.unscaledTime;
             int token = ++adNavigation;
-            bool primary = sceneView.resultPrimary.interactable, secondary = sceneView.resultSecondary.interactable;
-            sceneView.resultPrimary.interactable = sceneView.resultSecondary.interactable = false;
-            Ads.TryInterstitial(new HueAdBreakContext { won = Won, resultAction = sheetVisible,
+            Ads.TryInterstitial(new HueAdBreakContext { won = Won, beforeResult = true,
                 tutorialActive = tut >= 0, endless = Endless, levelNumber = LevelIndex + 1 }, () =>
             {
                 if (!this || token != adNavigation) return;
                 adNavigation++; adBreakActive = false;
                 pausedDuration += Time.unscaledTime - adBreakStarted;
                 resumedFrame = Time.frameCount;
-                sceneView.resultPrimary.interactable = primary; sceneView.resultSecondary.interactable = secondary;
+                now = GameTime;
                 if (isActiveAndEnabled) continued();
             });
         }

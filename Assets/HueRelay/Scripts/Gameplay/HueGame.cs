@@ -368,6 +368,7 @@ namespace HueRelay
             LoadGlobalBest(collection.campaignId);
             now = GameTime;
             LoadCampaignProgress(collection.campaignId);
+            telemetry = new HueTelemetry(collection.campaignId);
             mainMenu = FindObjectOfType<HueMainMenu>(true);
             if (mainMenu) mainMenu.gameObject.SetActive(true);
             BeginFromMenu();
@@ -403,13 +404,14 @@ namespace HueRelay
             if (adBreakActive) return;
             if (mainMenu && mainMenu.IsPauseSettingsOpen) return;
             if ((!sheetVisible && !IsPaused) || generating) return;
-            NavigateAfterResultAd(ReturnHomeNow);
+            ReturnHomeNow();
         }
 
         private void ReturnHomeNow()
         {
             if (!mainMenu) mainMenu = FindObjectOfType<HueMainMenu>();
             if (!mainMenu || !mainMenu.ResolveBindings()) return;
+            telemetry?.Leave("home");
             ResumePause();
             if (tut >= 0) EndTutorial();
             ResetGame();
@@ -504,6 +506,8 @@ namespace HueRelay
         /// </summary>
         public void ResetGame()
         {
+            telemetry?.Leave("restart");
+            ResetIdleMoveGuide();
             CancelAdNavigation();
             if (mainMenu && mainMenu.IsPauseSettingsOpen) mainMenu.CloseSettings();
             DismissPowerUpRefill(false);
@@ -576,6 +580,8 @@ namespace HueRelay
         /// </summary>
         public void Hint()
         {
+            TrackGameEvent("powerup_click", "powerup", "hint");
+            ResetIdleMoveGuide();
             if (!CanRequestHint)
                 return;
             if (hints == 0) { OpenPowerUpRefill(HuePowerUpKind.Hint); return; }
@@ -584,6 +590,7 @@ namespace HueRelay
             if (suggested < 0)
                 return;
             if (!Inventory.TrySpend(HuePowerUpKind.Hint)) return;
+            TrackGameEvent("powerup_use", "powerup", "hint");
             hintId = suggested;
             hintAt = now;
             audioBus.Tone(660, .14, .08);
@@ -689,6 +696,8 @@ namespace HueRelay
         /// <param name="bi">命中的箭头编号。</param>
         public void TapArrow(int bi)
         {
+            ResetIdleMoveGuide();
+            telemetry?.FirstAction();
             if (IsPaused || refillOpen) return;
             if (IsChoosingErase)
             {
@@ -741,7 +750,10 @@ namespace HueRelay
         public void Retry()
         {
             if (enabled && root && P != null && LevelCount > 0 && !generating && tut < 0 && !adBreakActive)
+            {
+                telemetry?.Leave("retry");
                 ResetGame();
+            }
         }
 
         /// <summary>场景中帮助按钮的持久化事件入口。</summary>
@@ -756,11 +768,12 @@ namespace HueRelay
         {
             if (generating || !sheetVisible || adBreakActive)
                 return;
-            NavigateAfterResultAd(ContinueResultNow);
+            ContinueResultNow();
         }
 
         private void ContinueResultNow()
         {
+            telemetry?.Leave(!Won ? "retry" : Endless ? "new_board" : IsLastCampaignLevel ? "endless" : "next_level");
             if (!Won)
                 ResetGame();
             else if (Endless)
@@ -790,6 +803,8 @@ namespace HueRelay
         /// <param name="p">相对于整个界面的逻辑像素点击位置。</param>
         private void Pointer(Vector2 p)
         {
+            telemetry?.FirstAction();
+            ResetIdleMoveGuide();
             if (adBreakActive || IsPaused || refillOpen || Time.frameCount == resumedFrame || Time.frameCount == tutorialAdvancedFrame || generating)
                 return;
             if (tut >= 3)
@@ -845,6 +860,9 @@ namespace HueRelay
             CancelErase();
             endAt = now;
             remaining = Mathf.Max(0, Limit - Taps);
+            ResetIdleMoveGuide();
+            UpdateTelemetryValues();
+            if (tut < 0) telemetry?.Finish(win);
             if (!win)
             {
                 After(.4f, ShowSheet);
@@ -894,7 +912,7 @@ namespace HueRelay
         /// </summary>
         private void ShowSheet()
         {
-            if (sheetVisible || !Over)
+            if (sheetVisible || adBreakActive || !Over)
                 return;
             if (Won && tut < 0)
             {
@@ -909,8 +927,14 @@ namespace HueRelay
                 // Keep the bonus countdown at zero until the next board starts.
             }
 
-            sheetVisible = true;
-            modalAt = now;
+            ShowResultAfterAd(() =>
+            {
+                if (sheetVisible || !Over) return;
+                sheetVisible = true;
+                modalAt = now;
+                TrackGameEvent("result_shown", "result", Won ? "won" : "failed");
+                Render();
+            });
         }
 
         /// <summary>
@@ -918,6 +942,8 @@ namespace HueRelay
         /// </summary>
         private void Update()
         {
+            TickTelemetry();
+            UpdateIdleMoveGuide();
             if (adBreakActive) return;
             if (mainMenu && mainMenu.IsVisible) return;
             if (Input.GetKeyDown(KeyCode.Escape))
@@ -944,6 +970,7 @@ namespace HueRelay
                     i++;
             }
 
+            if (adBreakActive) return;
             if (nextChain >= 0 && now >= nextChain)
             {
                 nextChain = -1;
@@ -1054,6 +1081,8 @@ namespace HueRelay
         /// </summary>
         private void OnDestroy()
         {
+            telemetry?.Leave("scene_exit"); telemetry?.EndSession();
+            CancelAdNavigation();
             refillRequest++;
             timed.Clear();
             StopAllCoroutines();

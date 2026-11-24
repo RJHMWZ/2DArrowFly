@@ -132,7 +132,7 @@ public static class HueNotchSafeAreaChecks
             foreach(float ratio in new[] {0f,.05f,.09f})
             {
                 float top=HueSafeArea.TopPixels(size.x,size.y,new Rect(0,0,size.x,size.y*(1-ratio)))/pixels;
-                float stageY=top+(view.topPadding+view.toolbarHeight+view.sectionGap+view.HudHeight
+                float stageY=top+(view.topPadding+view.TopBarHeight+view.sectionGap+view.HudHeight
                     +view.sectionGap+view.ProgressLayoutHeight)*k;
                 float stageHeight=Mathf.Max(1,view.PowerUpTop(height,k,0)-view.powerUpBoardGap*k-stageY);
                 view.ApplyLayout(width,height,k,appX,appWidth,top,0,stageY,stageHeight,
@@ -140,11 +140,13 @@ public static class HueNotchSafeAreaChecks
                 Canvas.ForceUpdateCanvases();
                 var current=Array.ConvertAll(targets,t=>view.HudBounds(t));
                 if(baseline==null) baseline=current;
+                float coreShift=current[1].yMin-baseline[1].yMin;
+                Require(coreShift>=-.1f && coreShift<=top+.1f,"Board-attached HUD moved outside safe-area bounds.");
                 for(int i=0;i<current.Length;i++)
-                    Require(current[i].yMin>=top-.1f && Mathf.Abs(current[i].yMin-baseline[i].yMin-top)<.1f
+                    Require(current[i].yMin>=top-.1f && Mathf.Abs(current[i].yMin-baseline[i].yMin-(i==0||i==2||i==3?top:coreShift))<.1f
                         && Mathf.Abs(current[i].x-baseline[i].x)<.1f
                         && Vector2.Distance(current[i].size,baseline[i].size)<.1f,
-                        "Gameplay HUD did not move together below the notch: "+size+"/"+ratio+"/"+targets[i].name);
+                        "Gameplay HUD did not follow the board below the notch: "+size+"/"+ratio+"/"+targets[i].name);
                 cases++;
                 if(ratio==.09f)
                 {

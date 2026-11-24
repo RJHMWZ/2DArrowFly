@@ -34,10 +34,18 @@ namespace HueRelay.Editor
             panel.itemIcon.sprite = view.hintButton.transform.Find("Icon").GetComponent<Image>().sprite;
             panel.itemIcon.preserveAspect = true; panel.itemIcon.raycastTarget = false;
             Box(panel.itemIcon.rectTransform,131,78,64,64);
-            panel.amountLabel = Label("Amount", panel.card, view.resultTitle.font, "+2",28,HueGame.Blue,24,156,278,34);
-            panel.message = Label("Message", panel.card, view.resultTitle.font, "Watch a video to get 2 hints.",13,HueGame.Mute,24,196,278,32);
-            panel.watchButton = Button("WatchAdButton", panel.card, view.resultPrimary, "Watch Ad",238,48);
-            panel.closeButton = Button("CloseButton", panel.card, view.resultSecondary, "Close",298,42);
+            panel.amountLabel = Label("Amount", panel.card, view.resultTitle.font, "+1",28,HueGame.Blue,24,156,278,34);
+            panel.message = Label("Message", panel.card, view.resultTitle.font, "Watch a video to get 1 hint.",13,HueGame.Mute,24,196,278,32);
+            panel.watchButton = Button("WatchAdButton", panel.card, view.resultPrimary, "Watch Ad",234,64);
+            Box((RectTransform)panel.watchButton.transform,16,234,294,64);
+            panel.watchButton.GetComponentInChildren<Text>(true).fontSize = 24;
+            panel.closeButton = Button("CloseButton", panel.card, view.resultSecondary, "Close",306,44);
+            // Transparent hit area keeps Close easy to tap without a visible button background.
+            panel.closeButton.GetComponent<Image>().color = Color.clear;
+            panel.closeButton.transition = Selectable.Transition.None;
+            var closeLabel = panel.closeButton.GetComponentInChildren<Text>(true);
+            closeLabel.fontSize = 14;
+            closeLabel.color = new Color(.65f,.67f,.74f,1);
             root.gameObject.SetActive(false);
             PrefabUtility.SaveAsPrefabAsset(root.gameObject, PrefabPath);
             UnityEngine.Object.DestroyImmediate(root.gameObject);

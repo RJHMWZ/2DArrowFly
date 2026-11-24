@@ -1,18 +1,18 @@
-Combo Arrow / TikTok 广告策略
-核对日期：2026-11-23
+Arrow Tones！ / TikTok 广告策略
+核对日期：2026-11-24
 
-可编辑策略表（按 2026-11-24 代码与配置核对）：outputs/ad-strategy-20261124/广告策略.xlsx
+可编辑策略表（按 2026-11-24 最新代码与配置核对）：outputs/ad-strategy-20261124/ArrowTones-广告策略.xlsx
 包含广告入口、公共规则、新增广告位模板；表中业务编号为维护建议，尚非运行时代码字段。
 修改表格不会自动修改游戏配置；新增入口或独立平台 ID 需同步代码与配置并完成验收。
 
 本次表格对应配置
-- 游戏名：Combo Arrow（表中暂定）。
+- 游戏名：Arrow Tones！。
 - Ivy TT 配置的 App ID：21008。
 - 包名：com.combo.arrows.tt，已同步到 Ivy TT 配置及 Unity Android / WebGL Application Identifier。
-- 激励视频 ID：ad7709470430622418952。
-- 插屏 ID：ad7710407114673899538。
+- 激励视频 ID：ad7709456718649395208。
+- 插屏 ID：ad7709467162021726215。
 - 当前 Ads Enabled、Rewarded Enabled、Interstitial Enabled 均已开启；仍须确认平台广告位为 Active。
-- project.config.json 的 projectname 已同步为 Combo Arrow；源项目的 TikTok appid 仍为空。
+- project.config.json 的 projectname 已同步为 Arrow Tones！；源项目的 TikTok appid 仍为空。
   表中编号已写入 Ivy 配置，不推定为 TikTok 导出标识；需要从开发者平台补充该标识后再导出。
 
 参考依据
@@ -25,10 +25,10 @@ Combo Arrow / TikTok 广告策略
 
 本项目的默认策略（产品选择，不代表官方规定的收益最优参数）
 1. 激励视频为主：提示、橡皮擦、加步道具用完后，玩家点击 Watch Ad 才展示。
-   完整播放补充当前选中的道具；数量沿用 PowerUps.asset 的 Rewarded Amount，默认 +2。
+   完整播放补充当前选中的道具；数量沿用 PowerUps.asset 的 Rewarded Amount，默认 +1。
    只增加库存，不自动使用。取消、失败、未加载、超时均不发奖。
-2. 插屏为辅：只在胜利结算中主动点击 Next Level / New Board / Endless Mode / Home 时判断。
-   失败 Retry、暂停返回 Home、教学、启动、普通主菜单按钮和棋盘操作不触发插屏。
+2. 插屏为辅：只在胜利或失败结算面板弹出前判断，广告结束后才显示面板。
+   Next Level / New Board / Endless Mode / Home / Retry 按钮均不触发插屏；暂停、教学、启动、普通主菜单按钮和棋盘操作也不触发。
 3. 前 3 个闯关关卡保护；本次会话至少通关 3 次且前台累计 120 秒后才可能出现首次插屏。
 4. 两次插屏关闭之间至少 90 秒；每次插屏后重新累计至少 3 次通关。
 5. 玩家主动请求激励视频后，及其关闭后各保护 120 秒不出插屏，包括取消或没有广告的情况。
@@ -49,8 +49,8 @@ Combo Arrow / TikTok 广告策略
 - Rewarded Ad Unit Id / Interstitial Ad Unit Id：已填写本次表格的对应广告位 ID；平台启用状态需另行确认。
 - 频控参数均在同一份配置里；运行时仍保留官方 15 秒模块保护和 30 秒插屏间隔下限。
 - Log Decisions 可在调试时打开，查看跳过原因、预加载、请求、关闭和失败。
-- Diagnostic 事件是本地扩展点，当前不会额外向分析服务发送数据。
-- 不引入 Banner、开屏广告、失败强制广告或分数翻倍入口。
+- Diagnostic 事件是本地扩展点，已由 HueTelemetry 接入现有 TikTok 事件上报链路，详见 Analytics.txt；Editor 仅输出日志。
+- 不引入 Banner、开屏广告或分数翻倍入口；失败结算也只在满足同一保护期与频控时尝试插屏。
 
 后续开通步骤
 1. 在 TikTok Developer Portal 为本小游戏开通 IAA，创建并启用 Rewarded / Interstitial 广告位。

@@ -50,6 +50,8 @@ namespace HueRelay
                 : kind == HuePowerUpKind.Eraser ? sceneView.eraseButton : sceneView.extraMovesButton;
             var icon = source.transform.Find("Icon").GetComponent<Image>();
             refillKind = kind; refillPending = false; refillOpen = true;
+            ResetIdleMoveGuide();
+            TrackGameEvent("powerup_refill_open", "powerup", kind.ToString());
             pauseStarted = Time.unscaledTime;
             refillPanel.Show(this, kind, icon.sprite, icon.color, Mathf.Max(1, PowerUpSettings.rewardedAmount));
             Render();
@@ -57,6 +59,7 @@ namespace HueRelay
         public void ClosePowerUpRefill()
         {
             if (refillPending) return;
+            if (refillOpen) TrackGameEvent("powerup_refill_close", "powerup", refillKind.ToString());
             DismissPowerUpRefill();
         }
         private void DismissPowerUpRefill(bool repaint = true)
@@ -77,13 +80,19 @@ namespace HueRelay
             int request = ++refillRequest;
             var kind = refillKind;
             int amount = Mathf.Max(1, PowerUpSettings.rewardedAmount);
+            TrackGameEvent("rewarded_request", "powerup", kind.ToString(), "amount", amount);
             refillPanel.SetPending(true);
             Action<bool> completed = watched =>
             {
                 if (!this || !refillOpen || !refillPending || request != refillRequest) return;
                 // Invalidate before any inventory/UI callbacks; duplicates cannot pay twice.
                 refillRequest++; refillPending = false;
-                if (watched) { Inventory.Add(kind, amount); DismissPowerUpRefill(); }
+                if (watched)
+                {
+                    Inventory.Add(kind, amount);
+                    TrackGameEvent("powerup_reward", "powerup", kind.ToString(), "amount", amount);
+                    DismissPowerUpRefill();
+                }
                 else refillPanel.ShowUnavailable();
             };
             var handler = RewardedAdRequested;

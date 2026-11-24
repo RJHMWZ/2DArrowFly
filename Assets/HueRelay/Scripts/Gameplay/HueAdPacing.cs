@@ -4,7 +4,7 @@ namespace HueRelay
 {
     public struct HueAdBreakContext
     {
-        public bool won, tutorialActive, resultAction, endless;
+        public bool won, tutorialActive, beforeResult, endless;
         public int levelNumber;
     }
 
@@ -35,7 +35,7 @@ namespace HueRelay
         {
             if (!policy.InterstitialConfigured) return "disabled_or_missing_placement";
             if (busy) return "another_ad_active";
-            if (!context.resultAction || !context.won || context.tutorialActive) return "not_a_winning_result_action";
+            if (!context.beforeResult || context.tutorialActive) return "not_a_result_boundary";
             if (!context.endless && context.levelNumber <= Math.Max(0, policy.protectedCampaignLevels)) return "protected_level";
             if (now < policy.FirstInterstitialDelay) return "session_warmup";
             if (now - moduleStarted < 15) return "sdk_module_warmup";

@@ -105,6 +105,8 @@ namespace HueRelay
         [Min(0)] public float sidePadding = 14;
         [Min(0)] public float topPadding = 12;
         [Min(0)] public float toolbarHeight = 44;
+        [Tooltip("Logical pixels reserved for host controls above the gameplay HUD. Back remains on the left.")]
+        [Min(44)] public float platformTopClearance = 64;
         [Min(0)] public float sectionGap = 14;
         [Min(0)] public float scoreLineHeight = 41.8f;
         [Min(0)] public float bestLineHeight = 17;
@@ -115,8 +117,12 @@ namespace HueRelay
         [Min(0)] public float powerUpBottomPadding = 12;
         [Min(0)] public float powerUpBoardGap = 16;
 
-        public float ProgressLayoutHeight => Mathf.Clamp(progressHeight, 5, 16);
-        public float HudHeight => Mathf.Max(44, scoreLineHeight);
+        // Include clearance above the board's frame, in addition to the thin progress track.
+        public float ProgressLayoutHeight => Mathf.Clamp(progressHeight, 4, 6) + 8;
+        // Best occupies header-local y=42..70; stats start after this metadata row.
+        public float TopBarHeight => Mathf.Max(70, platformTopClearance, toolbarHeight);
+        public float HudCardHeight => Mathf.Max(56, scoreLineHeight);
+        public float HudHeight => HudCardHeight;
         public float HudChipWidth => Mathf.Min(104, head.rect.width * .28f);
 
         private float layoutWidth = -1;
@@ -127,6 +133,8 @@ namespace HueRelay
         private float layoutBoardWidth = -1;
         private float layoutBoardHeight = -1;
         private float layoutPhysicalScale = -1;
+        private Vector2 layoutBoardPosition;
+        private float layoutSafeTop = -1, layoutSafeBottom = -1;
         private bool layoutTutorial;
         private Vector2 previewSize;
         private bool? shownComplete;
@@ -149,6 +157,30 @@ namespace HueRelay
         private readonly Dictionary<Text, int> hudFontSizes = new Dictionary<Text, int>();
         private readonly Vector3[] hudCorners = new Vector3[4];
         private Vector3 scoreRestScale = Vector3.one;
+        private bool moveNudging;
+        private Vector3 moveRestScale;
+        private Quaternion moveRestRotation;
+
+        public void SetMoveNudge(bool active, float elapsed)
+        {
+            if (!extraMovesButton) return;
+            var target = extraMovesButton.transform;
+            if (!active)
+            {
+                if (moveNudging) { target.localScale = moveRestScale; target.localRotation = moveRestRotation; }
+                moveNudging = false;
+                return;
+            }
+            if (!moveNudging)
+            {
+                moveRestScale = target.localScale; moveRestRotation = target.localRotation;
+                moveNudging = true;
+            }
+            float phase = Mathf.Repeat(elapsed, 1.8f);
+            float envelope = phase < .8f ? Mathf.Sin(phase / .8f * Mathf.PI) : 0;
+            target.localScale = moveRestScale * (1 + .06f * envelope);
+            target.localRotation = moveRestRotation * Quaternion.Euler(0, 0, 4 * envelope * Mathf.Sin(phase * 24));
+        }
 
         /// <summary>启动前验证场景绑定；缺失时由控制器报错，不回退为运行时重新搭建整套 UI。</summary>
         public bool ValidateBindings(out string reason)
@@ -349,14 +381,15 @@ namespace HueRelay
             return null;
         }
 
-        /// <summary>仅在分辨率、教学头部或关卡尺寸变化时重排容器，保留子节点在场景中的布局。</summary>
+        /// <summary>在视口或棋盘位置变化时重排 HUD，右上保留平台按钮区域。</summary>
         public void ApplyLayout(float width, float height, float scale, float appX, float appWidth,
             float top, float bottom, float stageY, float stageHeight, float boardX, float boardY, float boardWidth,
             float boardHeight, bool teaching, float physicalScale)
         {
             if (layoutWidth == width && layoutHeight == height && layoutScale == scale && layoutStageY == stageY
                 && layoutStageHeight == stageHeight && layoutBoardWidth == boardWidth && layoutBoardHeight == boardHeight
-                && layoutTutorial == teaching && layoutPhysicalScale == physicalScale)
+                && layoutTutorial == teaching && layoutPhysicalScale == physicalScale
+                && layoutBoardPosition == new Vector2(boardX, boardY) && layoutSafeTop == top && layoutSafeBottom == bottom)
                 return;
 
             layoutWidth = width;
@@ -368,15 +401,29 @@ namespace HueRelay
             layoutBoardHeight = boardHeight;
             layoutTutorial = teaching;
             layoutPhysicalScale = physicalScale;
+            layoutBoardPosition = new Vector2(boardX, boardY);
+            layoutSafeTop = top; layoutSafeBottom = bottom;
 
             float headerWidth = (appWidth - sidePadding * 2 * scale) / scale;
-            float headHeight = HudHeight;
-            SetBox(header, new Rect(appX + sidePadding * scale, top + topPadding * scale, headerWidth, 180));
+            float headerTop = top + topPadding * scale;
+            var hud = HueHudGeometry.Calculate(headerWidth, boardWidth / scale,
+                (boardY - headerTop) / scale, TopBarHeight + sectionGap, HudCardHeight, sectionGap, 4);
+            SetBox(header, new Rect(appX + sidePadding * scale, headerTop, headerWidth, hud.progress.yMax));
             header.localScale = Vector3.one * scale;
-            head.SetSizeWithCurrentAnchors(RectTransform.Axis.Vertical, headHeight);
-            head.anchoredPosition = new Vector2(head.anchoredPosition.x, -(toolbarHeight + sectionGap));
-            float progressY = toolbarHeight + sectionGap + headHeight + sectionGap;
-            SetBox(progressTrack, new Rect(4, progressY, headerWidth - 8, 5));
+            SetBox(head, hud.head);
+            // Back is a child of Head in existing scenes; offset it into the left toolbar slot.
+            SetBox((RectTransform)helpButton.transform, new Rect(-hud.head.x, -hud.head.y, 44, 44));
+            retryButton.gameObject.SetActive(false);
+            if (scoreChip) SetBox(scoreChip.rectTransform, hud.score);
+            SetBox(movesChip.rectTransform, hud.moves);
+            LayoutHudText(score, scoreChip ? new Rect(14, 0, hud.score.width - 28, hud.score.height)
+                : new Rect(hud.score.x + 14, hud.score.y, hud.score.width - 28, hud.score.height), 36, FontStyle.Bold);
+            LayoutHudText(moves, new Rect(8, 0, hud.moves.width - 16, hud.moves.height), 24, FontStyle.Bold);
+            LayoutHudText(levelTitle, hud.level, 25, FontStyle.Bold);
+            LayoutHudText(best, hud.best, 20, FontStyle.Normal);
+            levelTitle.color = HueGame.Ink;
+            best.color = HueGame.Mute;
+            SetBox(progressTrack, hud.progress);
             SetBox(stage, new Rect(appX + sidePadding * scale, stageY, appWidth - sidePadding * 2 * scale, stageHeight));
             float barWidth = appWidth / scale - sidePadding * 2;
             SetBox(powerUpBar, new Rect(appX + sidePadding * scale, PowerUpTop(height, scale, bottom), barWidth, powerUpHeight));
@@ -432,8 +479,19 @@ namespace HueRelay
             }
         }
 
-        // HUD geometry and alignment are authored in the scene. Only shrink text
-        // when a changing score/move count exceeds its existing text rectangle.
+        private void LayoutHudText(Text label, Rect box, int fontSize, FontStyle style)
+        {
+            PlaceCenter(label.rectTransform, box.center, box.size);
+            label.alignment = TextAnchor.MiddleCenter;
+            label.fontSize = fontSize;
+            label.fontStyle = style;
+            label.horizontalOverflow = HorizontalWrapMode.Overflow;
+            label.verticalOverflow = VerticalWrapMode.Truncate;
+            hudFontSizes[label] = fontSize;
+            textFits.Remove(label);
+        }
+
+        // Long scores and move counts shrink within the corresponding card.
         private void FitHudLabel(Text label)
         {
             if (!hudFontSizes.TryGetValue(label, out var maximum))
@@ -789,9 +847,9 @@ namespace HueRelay
             float height = Mathf.Max(1, previewSize.y);
             float scale = Mathf.Clamp(Mathf.Min(width / 390, height / 800), .75f, 3.5f);
             float appWidth = Mathf.Min(width, 460 * scale);
-            float stageY = (topPadding + toolbarHeight + sectionGap + HudHeight + sectionGap + ProgressLayoutHeight) * scale;
+            float stageY = (topPadding + TopBarHeight + sectionGap + HudHeight + sectionGap + ProgressLayoutHeight) * scale;
             float stageHeight = Mathf.Max(1, PowerUpTop(height, scale, 0) - powerUpBoardGap * scale - stageY);
-            float cell = Mathf.Max(1, Mathf.Min(64 * scale, Mathf.Floor((appWidth - 60 * scale) / 5), Mathf.Floor((stageHeight - 48 * scale) / 6)));
+            float cell = Mathf.Max(1, Mathf.Min(72 * scale, Mathf.Floor((appWidth - (sidePadding * 2 + 16) * scale) / 5), Mathf.Floor((stageHeight - 16 * scale) / 6)));
             ApplyLayout(width, height, scale, (width - appWidth) * .5f, appWidth, 0, 0, stageY, stageHeight,
                 width * .5f - cell * 2.5f, stageY + (stageHeight - cell * 6) * .5f, cell * 5, cell * 6, false, canvas.scaleFactor);
         }

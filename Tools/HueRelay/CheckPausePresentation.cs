@@ -34,7 +34,7 @@ public static class HuePausePresentationChecks
                 view.canvas.GetComponent<CanvasScaler>().scaleFactor=2;
                 Canvas.ForceUpdateCanvases();
                 float k=Mathf.Clamp(Mathf.Min(size.x/390f,size.y/800f),.75f,3.5f),appW=Mathf.Min(size.x,460*k);
-                float y=(view.topPadding+view.toolbarHeight+view.sectionGap+view.HudHeight+view.sectionGap+view.ProgressLayoutHeight)*k;
+                float y=(view.topPadding+view.TopBarHeight+view.sectionGap+view.HudHeight+view.sectionGap+view.ProgressLayoutHeight)*k;
                 float h=Mathf.Max(1,view.PowerUpTop(size.y,k,0)-view.powerUpBoardGap*k-y);
                 view.ApplyLayout(size.x,size.y,k,(size.x-appW)/2,appW,0,0,y,h,size.x/2-100,y+h/2-120,200,240,false,2);
                 view.SetHud("120",HueGame.Ink,1,0,"Best 360","Level 1","Moves 2/6",HueGame.Ink,.5f,false,0,2,4,false);

@@ -17,7 +17,9 @@ namespace HueRelay
             title.text = "Out of " + name;
             itemIcon.sprite = sprite; itemIcon.color = tint;
             amountLabel.text = "+" + amount;
-            message.text = "Watch a video to get " + amount + " " + name.ToLowerInvariant() + ".";
+            string rewardName = name.ToLowerInvariant();
+            if (amount == 1) rewardName = rewardName.TrimEnd('s');
+            message.text = "Watch a video to get " + amount + " " + rewardName + ".";
             watchButton.onClick = new Button.ButtonClickedEvent();
             watchButton.onClick.AddListener(game.WatchPowerUpAd);
             closeButton.onClick = new Button.ButtonClickedEvent();

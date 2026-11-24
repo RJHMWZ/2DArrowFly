@@ -18,7 +18,7 @@ namespace HueRelay.Editor
             config.adsEnabled = true; config.rewardedAdUnitId = "test_rewarded"; config.interstitialAdUnitId = "test_interstitial";
             return config;
         }
-        private static HueAdBreakContext Win(int level = 4) => new HueAdBreakContext { won = true, resultAction = true, levelNumber = level };
+        private static HueAdBreakContext Win(int level = 4) => new HueAdBreakContext { won = true, beforeResult = true, levelNumber = level };
         private static HueAdPacing ReadyPolicy(HueAdPolicy config)
         {
             var pacing = new HueAdPacing(config); pacing.RecordModuleStarted(0);
@@ -38,10 +38,12 @@ namespace HueRelay.Editor
                 Require(pacing.InterstitialBlock(119, Win(), false, true) == "session_warmup", "First interstitial warmup bypassed.");
                 Require(pacing.InterstitialBlock(120, Win(), true, true) == "another_ad_active", "Overlapping ads allowed.");
                 Require(pacing.InterstitialBlock(120, Win(), false, false) == "not_loaded", "Unloaded interstitial was eligible.");
-                foreach (int flag in new[] { 0, 1, 2 })
+                var failure = Win(); failure.won = false;
+                Require(pacing.InterstitialBlock(120, failure, false, true) == null, "Failure result boundary did not qualify.");
+                foreach (int flag in new[] { 1, 2 })
                 {
-                    var context = Win(); if (flag == 0) context.won = false; else if (flag == 1) context.resultAction = false; else context.tutorialActive = true;
-                    Require(pacing.InterstitialBlock(999, context, false, true) == "not_a_winning_result_action", "Failure/tutorial/non-result showed an ad.");
+                    var context = Win(); if (flag == 1) context.beforeResult = false; else context.tutorialActive = true;
+                    Require(pacing.InterstitialBlock(999, context, false, true) == "not_a_result_boundary", "Tutorial/non-result showed an ad.");
                 }
                 pacing = new HueAdPacing(config); pacing.RecordModuleStarted(119);
                 for (int i = 0; i < 3; i++) pacing.RecordWin();
@@ -114,7 +116,8 @@ namespace HueRelay.Editor
             Board(game);
             typeof(HueGame).GetProperty("Over").SetValue(game, true);
             typeof(HueGame).GetProperty("Won").SetValue(game, won);
-            typeof(HueGame).GetField("sheetVisible", Private).SetValue(game, true);
+            typeof(HueGame).GetField("sheetVisible", Private).SetValue(game, false);
+            typeof(HueGame).GetMethod("ShowSheet", Private).Invoke(game, null);
         }
 
         [MenuItem("Tools/Hue Relay/Ads/Check runtime integration")]
@@ -146,7 +149,7 @@ namespace HueRelay.Editor
                     "Rewarded ad was not opt-in/single-flight or rewarded early.");
                 Require(AudioListener.pause, "Game sound was not paused for the ad.");
                 var complete = backend.complete; complete(HueAdOutcome.Completed); complete(HueAdOutcome.Completed);
-                Require(game.HintsRemaining == 2 && !game.IsPowerUpRefillOpen && !ads.IsBusy && AudioListener.pause == oldAudio,
+                Require(game.HintsRemaining == 1 && !game.IsPowerUpRefillOpen && !ads.IsBusy && AudioListener.pause == oldAudio,
                     "Completed reward was missing/duplicated, UI locked or audio not restored.");
                 Inventory(game); Board(game); time += 11; ads.Tick();
                 game.Hint(); game.WatchPowerUpAd(); complete = backend.complete;
@@ -165,7 +168,7 @@ namespace HueRelay.Editor
                     Inventory(game); Board(game); time += 11; ads.Tick();
                     if (kind == HuePowerUpKind.Eraser) game.ToggleErase(); else game.AddMoves();
                     game.WatchPowerUpAd(); backend.complete(HueAdOutcome.Completed);
-                    Require((kind == HuePowerUpKind.Eraser ? game.ErasersRemaining : game.ExtraMovesRemaining) == 2
+                    Require((kind == HuePowerUpKind.Eraser ? game.ErasersRemaining : game.ExtraMovesRemaining) == 1
                         && game.HintsRemaining == 0 && !game.IsPowerUpRefillOpen, "Reward did not refill only the selected tool: " + kind);
                 }
 
@@ -193,17 +196,26 @@ namespace HueRelay.Editor
                 Require(backend.preloads == 0 && backend.shows == 0 && continued == 1, "Disabled policy called the backend or blocked navigation.");
                 config.adsEnabled = true;
 
-                // Winning result must wait for close exactly once; all other navigation stays immediate.
+                // Both result panels wait for close; navigation afterwards never requests an ad.
                 time = 0; backend = new Backend(); ads.Initialize(game, config, backend, () => time); ads.Tick(); time = 120;
                 ads.RecordWin(); ads.RecordWin(); ads.RecordWin(); Result(game, true);
                 game.ContinueResult(); game.ContinueResult(); game.ReturnHome();
-                Require(game.IsAdBreakActive && ads.IsBusy && backend.shows == 1 && game.LevelIndex == 3,
-                    "Winning navigation was not gated or repeated the ad.");
+                Require(game.IsAdBreakActive && ads.IsBusy && backend.shows == 1 && game.LevelIndex == 3 && !game.ModalVisible,
+                    "Winning result was not gated or repeated the ad.");
                 complete = backend.complete; complete(HueAdOutcome.Completed); complete(HueAdOutcome.Completed);
-                Require(!game.IsAdBreakActive && !ads.IsBusy && game.LevelIndex == 4 && ads.Pacing.InterstitialsThisSession == 1,
-                    "Interstitial close did not navigate/count exactly once.");
+                Require(!game.IsAdBreakActive && !ads.IsBusy && game.ModalVisible && game.LevelIndex == 3 && ads.Pacing.InterstitialsThisSession == 1,
+                    "Interstitial close did not reveal/count exactly once.");
+                game.ContinueResult();
+                Require(game.LevelIndex == 4 && backend.shows == 1, "Next Level requested another ad.");
                 Result(game, false); int shown = backend.shows; game.ContinueResult();
                 Require(backend.shows == shown && !game.Over && !game.IsAdBreakActive, "Failure Retry showed an ad.");
+
+                time = 0; backend = new Backend(); ads.Initialize(game, config, backend, () => time); ads.Tick(); time = 120;
+                ads.RecordWin(); ads.RecordWin(); ads.RecordWin(); Result(game, false);
+                Require(game.IsAdBreakActive && !game.ModalVisible && backend.shows == 1,"Failure panel did not wait for interstitial.");
+                backend.complete(HueAdOutcome.Completed);
+                Require(game.ModalVisible && !game.Won && !game.IsAdBreakActive,"Failure panel did not appear after close.");
+                game.ContinueResult(); Require(backend.shows == 1 && !game.Over,"Retry requested another ad.");
 
                 time = 0; backend = new Backend(); ads.Initialize(game, config, backend, () => time); ads.Tick(); time = 120;
                 ads.RecordWin(); ads.RecordWin(); ads.RecordWin(); backend.ready[1] = false; Result(game, true); game.ContinueResult();
@@ -212,8 +224,8 @@ namespace HueRelay.Editor
                 time = 0; backend = new Backend(); ads.Initialize(game, config, backend, () => time); ads.Tick(); time = 120;
                 ads.RecordWin(); ads.RecordWin(); ads.RecordWin(); Result(game, true); game.ContinueResult();
                 complete = backend.complete; time += config.PlaybackTimeout + 1; ads.Tick(); complete(HueAdOutcome.Completed);
-                Require(!game.IsAdBreakActive && !ads.IsBusy && game.LevelIndex == 4 && ads.Pacing.InterstitialsThisSession == 0
-                    && AudioListener.pause == oldAudio, "Timeout/late close locked, counted or navigated twice.");
+                Require(!game.IsAdBreakActive && !ads.IsBusy && game.ModalVisible && game.LevelIndex == 3 && ads.Pacing.InterstitialsThisSession == 0
+                    && AudioListener.pause == oldAudio, "Timeout/late close locked, counted or revealed twice.");
 
                 time = 0; backend = new Backend { throwOnShow = true }; ads.Initialize(game, config, backend, () => time); ads.Tick(); time = 120;
                 ads.RecordWin(); ads.RecordWin(); ads.RecordWin(); Result(game, true); game.ContinueResult();
@@ -221,7 +233,7 @@ namespace HueRelay.Editor
                 Require(new HuePowerUpInventory(game.PowerUpSettings, InventoryKey).Count(HuePowerUpKind.Hint) == 0,
                     "Non-rewarded ad outcome changed inventory.");
                 Directory.CreateDirectory("Logs/Ads");
-                File.WriteAllText("Logs/Ads/runtime-checks.txt", "PASS: " + checks + " checks: preload without showing; explicit opt-in; no early grant; exactly-once +2 persisted reward; cancellation/stale callbacks; no-fill; result navigation single-flight; failure Retry has no ads; skip unloaded; timeout/late-close recovery; show exceptions; game audio restored. Player inventory and tutorial flag restored.\n");
+                File.WriteAllText("Logs/Ads/runtime-checks.txt", "PASS: " + checks + " checks: preload without showing; explicit opt-in; no early grant; exactly-once +1 persisted reward; cancellation/stale callbacks; no-fill; win/failure pre-result single-flight; failure Retry has no ads; skip unloaded; timeout/late-close recovery; show exceptions; game audio restored. Player inventory and tutorial flag restored.\n");
             }
             finally
             {

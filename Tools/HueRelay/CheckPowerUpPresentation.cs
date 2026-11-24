@@ -39,7 +39,7 @@ public static class HuePowerUpPresentationChecks
                 float width=size.x/pixels,height=size.y/pixels;
                 float k=Mathf.Clamp(Mathf.Min(width/390,height/800),.75f,3.5f);
                 float appWidth=Mathf.Min(width,460*k),appX=(width-appWidth)/2;
-                float stageY=(view.topPadding+view.toolbarHeight+view.sectionGap+view.HudHeight
+                float stageY=(view.topPadding+view.TopBarHeight+view.sectionGap+view.HudHeight
                     +view.sectionGap+view.ProgressLayoutHeight)*k;
                 float stageHeight=Mathf.Max(1,view.PowerUpTop(height,k,0)-view.powerUpBoardGap*k-stageY);
                 view.ApplyLayout(width,height,k,appX,appWidth,0,0,stageY,stageHeight,

@@ -1,0 +1,61 @@
+Arrow Tones！ 关卡漏斗与流失埋点
+核对日期：2026-11-24
+
+上报位置
+运行时 HueTelemetry → 现有 IvySdk.Tracker.EventTracker → 已安装的 TikTokTracker → TT.ReportEvent。
+Unity Editor / Luna 仅在 Console 输出 [HueAnalytics]，不向真实平台发送测试数据。
+没有创建统计后台或改动平台账号；发布后需在已开通的 TikTok 事件后台登记／核对事件和参数，并进行真机到达验证。
+项目里的 IvyTracker.report 当前没有实现上传；本次不能把它当成可用的第二个统计后台。
+
+公共字段
+event_id：每条事件唯一标识，服务端去重依据。
+install_id：本机匿名安装标识，跨会话保留，清除本地数据后变化；现有 TikTok 适配器另外添加其 role_id。
+session_id：本次游戏控制器会话标识；重新启动／场景重建产生新值。
+campaign_id / app_version / schema_version / timestamp_utc：关卡版本、程序版本、事件版本、UTC 时间。
+关卡事件另带 level（从 1 开始）、mode（campaign/endless）、attempt_id、attempt_no、status、score、taps、moves_left、arrows_left、active_sec。
+attempt_no 按本地关卡累计，包括重试；不能用它代替去重玩家人数。
+active_sec 只累加关卡有效前台游玩时间，排除教学、暂停、补充弹窗和广告。
+
+事件字典
+| 事件 | 触发时机 | 用途／额外字段 |
+| session_start | 游戏初始化 | 会话人数、启动次数 |
+| level_start | 正式棋盘首次进入可游玩帧 | 到达关卡人数、每关尝试次数；教学不创建正式关卡尝试 |
+| level_first_action | 每次尝试第一次点击棋盘／道具等操作 | 识别进入关卡后没有操作的人 |
+| level_end | 胜败确定，广告与结算动画之前 | result=won/failed；每次尝试只上报一次 |
+| result_shown | 广告结束／跳过后，结算面板显示 | result=won/failed；与 level_end 对比观察广告阶段退出 |
+| level_abandon | 未出胜败就重试、返回首页或场景销毁 | reason=retry/home/restart/scene_exit；这是本局中断，不等同永久流失 |
+| level_leave | 离开当前棋盘 | reason=next_level/retry/home/new_board/endless/restart/scene_exit |
+| session_background | 实际切到后台／失去焦点 | 去重 Unity focus/pause 和 TikTok visibility；ad_in_progress=1 表示可能由广告引起 |
+| session_resume | 回到前台 | 区分短暂切后台和后续返回 |
+| session_end | 收到退出／场景销毁通知 | 移动端强杀未必收到，不能只靠此事件判断退出 |
+| previous_session_checkpoint | 后续启动读取上次快照 | previous_level/previous_attempt_id/previous_session_id/previous_status/previous_active_sec |
+| tutorial_start / tutorial_complete | 教学打开／结束 | 新手引导漏斗；手动跳过也会结束教学 |
+| idle_move_nudge | 正式游玩无操作满 5 秒 | 每轮空闲只记录一次提示曝光 |
+| powerup_click | 点击道具 | powerup；Move 额外带 from_idle_guide |
+| powerup_use | 实际消耗道具 | powerup |
+| powerup_refill_open / powerup_refill_close | 补充窗口打开／主动关闭 | powerup |
+| rewarded_request | 主动点击 Watch Ad | powerup、amount=1 |
+| powerup_reward | 完整观看且实际入库后 | powerup、amount=1；重复／过期回调不会重复发奖或上报 |
+| ad_event | 广告加载、跳过、播放请求和结束 | detail 为阶段／原因；placement=result_win/result_fail/道具种类/preload |
+
+最值得先看的报表
+1. 每关到达人数：按 campaign_id、mode=campaign、level 分组，去重 install_id，统计 level_start。
+2. 每关通过率：同一到达玩家队列中，后续至少一次 level_end(result=won) 的人数 / 到达人数。
+3. 每关失败与重试：失败尝试数、每个玩家通过前的 attempt 数、失败后的下次 level_start。
+4. 未操作离开：有 level_start、没有相同 attempt_id 的 level_first_action；结合后台与后续启动观察。
+5. 广告阶段掉出：有 level_end，未出现同 attempt_id 的 result_shown，再检查 ad_event 与后续返回。
+6. 看广告后的继续率：powerup_reward 后同 attempt_id 是否继续操作／最终通过。
+
+“多少关流失”的口径
+在服务端为每个 install_id 按事件时间找最后一次正式关卡 level_start，并保留当时是否失败／通关、尝试次数及广告阶段。
+例如采用“最后一次活跃后 24 小时没有再回来”为流失观察窗，按最后关卡分组统计人数；观察窗尚未满的玩家不纳入分母。
+也可以同时看 3 天、7 天未返回。具体观察窗是产品统计口径，不在客户端当场判定。
+每关流失率的分母应为同一观察队列到达该关的去重玩家，不能混用事件次数或不同版本关卡。
+session_background 不是流失事件；广告切后台、暂停、退出和永久不再返回必须区分。
+
+可靠性与验收
+- 每次进入、结果、离开和切后台保存本地关卡快照；游玩中每 10 秒更新一次，帮助下一次启动恢复最后关卡线索。
+- 本地队列上限 256，接口抛异常后 5 秒重试；这是有界内存重试，不是可离线保证送达的持久队列。
+- TT.ReportEvent 没有在此封装层提供到达确认，不能把接口调用成功等同于后台已经入库；真机需逐项核对。
+- 移动端强杀可能丢失最后几秒或未发送事件，因此流失报表应以服务端观察窗与已有 level_start 为主要依据。
+- Unity 菜单 Tools > Hue Relay > Debug > Check new gameplay and analytics 可运行逻辑检查。

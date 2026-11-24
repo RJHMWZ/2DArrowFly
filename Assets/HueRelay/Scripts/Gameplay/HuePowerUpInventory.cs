@@ -65,7 +65,7 @@ namespace HueRelay
         {
             if (HasClaimedRetentionReward(kind)) return false;
             int amount = HueRetention.RewardAmount(kind);
-            data.hints = data.hints > int.MaxValue - amount ? int.MaxValue : data.hints + amount;
+            data.extraMoves = data.extraMoves > int.MaxValue - amount ? int.MaxValue : data.extraMoves + amount;
             if (kind == HueRetentionKind.Profile) data.profileRewardClaimed = true;
             else data.shortcutRewardClaimed = true;
             // Receipt and balance are persisted in the same JSON snapshot. A duplicate
@@ -73,6 +73,16 @@ namespace HueRelay
             Save();
             return true;
         }
+#if UNITY_EDITOR
+        // Keep reward receipts when changing balances for a test.
+        public void DebugSetCounts(int hints, int erasers, int extraMoves)
+        {
+            data.hints = Mathf.Max(0, hints);
+            data.erasers = Mathf.Max(0, erasers);
+            data.extraMoves = Mathf.Max(0, extraMoves);
+            Save();
+        }
+#endif
         private void Set(HuePowerUpKind kind, int count)
         {
             switch (kind) { case HuePowerUpKind.Hint: data.hints = count; break;

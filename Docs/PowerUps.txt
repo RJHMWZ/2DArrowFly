@@ -1,8 +1,8 @@
 全局道具库存与广告补充
 
 配置：Assets/HueRelay/Resources/HueRelay/Data/PowerUps.asset
-initialHints / initialErasers / initialExtraMoves：首次建立本地库存时赠送数量，默认均为 1。
-rewardedAmount：一次完整观看广告后的奖励数量，默认 2；只补充此次点击的道具。
+initialHints / initialErasers / initialExtraMoves：首次建立本地库存时赠送数量，默认均为 0。
+rewardedAmount：一次完整观看广告后的奖励数量，默认 1；只补充此次点击的道具。
 调整初始赠送数量不会重置已经存在的存档。
 
 存档：PlayerPrefs 的 cc_powerups_v1。跨关卡、重玩、主菜单和重启保留。
@@ -11,12 +11,13 @@ rewardedAmount：一次完整观看广告后的奖励数量，默认 2；只补�
 
 补充面板：Assets/HueRelay/Resources/HueRelay/UI/PowerUpRefill.prefab
 可在 Prefab 编辑器调整布局，使用现有道具图标和按钮样式。
-数量为 0 的道具在正常游玩中仍可点击，点击后展示对应图标、+2、Watch Ad 和 Close。
+Watch Ad 主按钮为 294×64、字号 24；Close 为无可见背景的浅灰文字、字号 14，保留 278×44 点击区域。
+数量为 0 的道具在正常游玩中仍可点击，点击后展示对应图标、+1、Watch Ad 和 Close。
 打开面板及观看广告期间冻结游戏时钟、阻止棋盘和其他道具操作。
 广告成功后只增加库存，不自动使用；关闭、失败、取消均不发奖。
 同一次请求的重复回调及棋局重置后的过期回调不重复发奖。
 
-后续广告接入（尚未连接真实广告 SDK 或埋点）：
+广告适配与埋点（已接入统一 HueAds 和现有 TikTok 上报接口，详见 Ads.txt / Analytics.txt）：
 订阅 HueGame.RewardedAdRequested，参数是 HuePowerUpKind 和 Action<bool> 完成回调。
 使用一个广告适配器订阅，并在 Unity 主线程调用完成回调。
 根据 kind 映射广告位/埋点；只有 SDK 确认完整观看后调用 completed(true)。
@@ -25,7 +26,7 @@ rewardedAmount：一次完整观看广告后的奖励数量，默认 2；只补�
 解除对象/场景订阅时请同步取消广告监听。
 
 编辑器模拟：simulateAdsInEditor 默认开启，仅在 UNITY_EDITOR 中生效。
-没有订阅真实广告适配器时，点击 Watch Ad 会在 Console 输出明确模拟日志，并模拟完整观看补充 2 个。
+没有订阅真实广告适配器时，点击 Watch Ad 会在 Console 输出明确模拟日志，并模拟完整观看补充 1 个。
 关闭此选项可测试无广告状态。正式 Player 构建不会使用此模拟；未接真实广告适配器时显示广告暂不可用，库存不变。
 有适配器订阅时，始终优先调用适配器。
 

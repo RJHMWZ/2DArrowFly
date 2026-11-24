@@ -37,8 +37,8 @@ namespace HueRelay.Editor
             bg.raycastTarget = true;
 
             menu.logo = Node("TitleLogoPlaceholder", root);
-            var titleLogo = Image("ComboArrowLogo", menu.logo, Color.white, false);
-            titleLogo.sprite = AssetDatabase.LoadAssetAtPath<Sprite>("Assets/HueRelay/Art/Brand/ComboArrowLogo.png");
+            var titleLogo = Image("ArrowTonesLogo", menu.logo, Color.white, false);
+            titleLogo.sprite = AssetDatabase.LoadAssetAtPath<Sprite>("Assets/HueRelay/Art/Brand/ArrowTonesLogo.png");
             titleLogo.preserveAspect = true;
             Stretch(titleLogo.rectTransform);
 
