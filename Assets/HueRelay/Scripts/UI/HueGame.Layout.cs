@@ -99,7 +99,7 @@ namespace HueRelay
             // Keep the entire board above the item bar and the device's bottom safe area.
             stageH = Mathf.Max(1, sceneView.PowerUpTop(viewHeight, K, safeBottom) - sceneView.powerUpBoardGap * K - stageY);
             // Reserve only the visible frame (8 logical pixels per edge).
-            cs = Mathf.Max(1, Mathf.Min(72 * K, Mathf.Floor((appW - sceneView.sidePadding * 2 * K - 16 * K) / P.L.w), Mathf.Floor((stageH - 16 * K) / P.L.h)));
+            cs = Mathf.Max(1, Mathf.Min(72 * K, Mathf.Min(Mathf.Floor((appW - sceneView.sidePadding * 2 * K - 16 * K) / P.L.w), Mathf.Floor((stageH - 16 * K) / P.L.h))));
             ox = appX + appW * .5f - P.L.w * cs * .5f;
             oy = stageY + (stageH - P.L.h * cs) * .5f;
             sceneView.ApplyLayout(viewWidth, viewHeight, K, appX, appW, safeTop, safeBottom, stageY, stageH,

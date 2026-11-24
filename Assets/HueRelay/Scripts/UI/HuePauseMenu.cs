@@ -67,8 +67,8 @@ namespace HueRelay
         {
             if (!card) return;
             var parent = transform as RectTransform;
-            float scale = Mathf.Max(.1f, Mathf.Min(1, (parent.rect.width - 32) / 326,
-                (parent.rect.height - 32) / 378));
+            float scale = Mathf.Max(.1f, Mathf.Min(1, Mathf.Min((parent.rect.width - 32) / 326,
+                (parent.rect.height - 32) / 378)));
             card.localScale = Vector3.one * scale;
         }
     }

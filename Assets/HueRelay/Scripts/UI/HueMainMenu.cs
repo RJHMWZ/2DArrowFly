@@ -33,6 +33,9 @@ namespace HueRelay
         private RectTransform hiddenPauseCard;
         private Vector2 validSettingsPosition = new Vector2(40, -55);
         private Vector2 validSettingsSize = new Vector2(52, 52);
+        private Vector2 automaticLayoutSize, automaticLogoSize;
+        private Rect automaticSafeArea;
+        private bool automaticLayoutValid, automaticSettingsOpen;
         private HueRetentionMenu retentionMenu;
         private HueRetentionMenu RetentionMenu => retentionMenu ? retentionMenu : (retentionMenu = GetComponent<HueRetentionMenu>());
         public bool IsPauseSettingsOpen => settingsFromPause;
@@ -263,7 +266,23 @@ namespace HueRelay
                 if (!ResolveBindings()) return;
                 BindButtons();
             }
-            Layout(Screen.width, Screen.height, Screen.safeArea);
+            // The menu object remains alive during gameplay for platform callbacks.
+            // Its geometry only needs automatic updates when visible and the viewport changes.
+            if (Application.isPlaying && !IsVisible && !IsPauseSettingsOpen)
+            {
+                automaticLayoutValid = false;
+                return;
+            }
+            var size = new Vector2(Screen.width, Screen.height);
+            var safe = Screen.safeArea;
+            bool settingsOpen = settingsOverlay && settingsOverlay.activeSelf;
+            if (!Application.isPlaying || !automaticLayoutValid || size != automaticLayoutSize
+                || safe != automaticSafeArea || logoSize != automaticLogoSize || settingsOpen != automaticSettingsOpen)
+            {
+                Layout(size.x, size.y, safe);
+                automaticLayoutSize = size; automaticSafeArea = safe; automaticLogoSize = logoSize;
+                automaticSettingsOpen = settingsOpen; automaticLayoutValid = true;
+            }
             if (Application.isPlaying && Input.GetKeyDown(KeyCode.Escape) && IsVisible && settingsOverlay.activeSelf)
                 CloseSettings();
         }
@@ -310,7 +329,7 @@ namespace HueRelay
             RepairDescendants(settings);
             if (settingsLabel && settingsLabel.gameObject.activeSelf) settingsLabel.gameObject.SetActive(false);
             Place(settingsCard, center, top + usable * .5f, 326, 292);
-            settingsCard.localScale = Vector3.one * Mathf.Max(.1f, Mathf.Min(1, (contentWidth - 32) / 326, (usable - 24) / 292));
+            settingsCard.localScale = Vector3.one * Mathf.Max(.1f, Mathf.Min(1, Mathf.Min((contentWidth - 32) / 326, (usable - 24) / 292)));
             if (RetentionMenu) RetentionMenu.Layout(w, h, top, bottom, left, right);
         }
 

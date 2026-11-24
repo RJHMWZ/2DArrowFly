@@ -152,6 +152,8 @@ namespace HueRelay
         private readonly List<Bead> beads = new List<Bead>(32);
         private readonly List<Token> tokens = new List<Token>(32);
         private readonly List<Conf> conf = new List<Conf>(256);
+        private static readonly int[] ConfettiJets = { 30, 45, 60 };
+        private static readonly int[] ConfettiRain = { 15, 25, 40 };
         float Rand
         {
             get
@@ -379,18 +381,8 @@ namespace HueRelay
         /// <param name="tier">与连锁或胜利等级对应的效果档位。</param>
         private void Confetti(int tier)
         {
-            int n = new[]
-            {
-                30,
-                45,
-                60
-            }[tier - 1];
-            int rain = new[]
-            {
-                15,
-                25,
-                40
-            }[tier - 1];
+            int n = ConfettiJets[tier - 1];
+            int rain = ConfettiRain[tier - 1];
             // Share one total budget between both side jets and all rain batches.
             // Keep the original tier's proportions instead of filling one side first.
             int originalTotal = n * 2 + Mathf.CeilToInt(rain / 10f) * 10;
@@ -436,8 +428,11 @@ namespace HueRelay
         private void MakeConf(Vector2 p, Vector2 v, float life, float delay)
         {
             float shape = Rand;
-            conf.Add(new Conf { p = p - new Vector2(ox, oy), v = v, t = -delay, drag = .75f + Rand * .8f, life = life, c = new[] { Blue, Orange, Ink }[UnityEngine.Random.Range(0, 3)], rotation = Rand * 6.28f, spin = (Rand - .5f) * 10, flip = Rand * 6.28f, flipSpeed = 6 + Rand * 8, sway = (Rand - .5f) * 140, size = .45f + Mathf.Pow(Rand, 1.6f) * 1.7f });
+            conf.Add(new Conf { p = p - new Vector2(ox, oy), v = v, t = -delay, drag = .75f + Rand * .8f, life = life, c = ConfettiColor(UnityEngine.Random.Range(0, 3)), rotation = Rand * 6.28f, spin = (Rand - .5f) * 10, flip = Rand * 6.28f, flipSpeed = 6 + Rand * 8, sway = (Rand - .5f) * 140, size = .45f + Mathf.Pow(Rand, 1.6f) * 1.7f });
         }
+
+        // Read colors after the partial class has initialized its shared palette.
+        private static Color ConfettiColor(int index) => index == 0 ? Blue : index == 1 ? Orange : Ink;
 
         /// <summary>
         /// 推进所有特效值类型状态并回收过期项；奖励粒子抵达时才增加分数。

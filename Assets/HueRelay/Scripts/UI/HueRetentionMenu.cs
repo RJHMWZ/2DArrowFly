@@ -164,7 +164,7 @@ namespace HueRelay
             StyleEntry(shortcutButton, size, gear, 1);
             float cardHeight = selected == HueRetentionKind.Profile ? 596 : 392;
             Place(card, center, top + usable * .5f, 326, cardHeight);
-            card.localScale = Vector3.one * Mathf.Max(.1f, Mathf.Min(1, (contentWidth - 32) / 326, (usable - 24) / cardHeight));
+            card.localScale = Vector3.one * Mathf.Max(.1f, Mathf.Min(1, Mathf.Min((contentWidth - 32) / 326, (usable - 24) / cardHeight)));
         }
 
         private static void StyleEntry(Button button, Vector2 size, HueSettingsIcon gear, float side)

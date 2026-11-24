@@ -36,6 +36,11 @@ namespace HueRelay.Editor
                 importer.swizzleR = TextureImporterSwizzle.One;
                 importer.swizzleG = TextureImporterSwizzle.One;
                 importer.swizzleB = TextureImporterSwizzle.One;
+                // This neutral surface only uses the source alpha; keep its original
+                // 8-bit coverage while avoiding three unused color channels.
+                var settings = importer.GetDefaultPlatformTextureSettings();
+                settings.format = TextureImporterFormat.Alpha8;
+                importer.SetPlatformTextureSettings(settings);
             }
             importer.spritesheet = slices;
             importer.SaveAndReimport();

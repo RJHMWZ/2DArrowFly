@@ -120,7 +120,7 @@ namespace HueRelay
         // Include clearance above the board's frame, in addition to the thin progress track.
         public float ProgressLayoutHeight => Mathf.Clamp(progressHeight, 4, 6) + 8;
         // Best occupies header-local y=42..70; stats start after this metadata row.
-        public float TopBarHeight => Mathf.Max(70, platformTopClearance, toolbarHeight);
+        public float TopBarHeight => Mathf.Max(70, Mathf.Max(platformTopClearance, toolbarHeight));
         public float HudCardHeight => Mathf.Max(56, scoreLineHeight);
         public float HudHeight => HudCardHeight;
         public float HudChipWidth => Mathf.Min(104, head.rect.width * .28f);
@@ -849,7 +849,7 @@ namespace HueRelay
             float appWidth = Mathf.Min(width, 460 * scale);
             float stageY = (topPadding + TopBarHeight + sectionGap + HudHeight + sectionGap + ProgressLayoutHeight) * scale;
             float stageHeight = Mathf.Max(1, PowerUpTop(height, scale, 0) - powerUpBoardGap * scale - stageY);
-            float cell = Mathf.Max(1, Mathf.Min(72 * scale, Mathf.Floor((appWidth - (sidePadding * 2 + 16) * scale) / 5), Mathf.Floor((stageHeight - 16 * scale) / 6)));
+            float cell = Mathf.Max(1, Mathf.Min(72 * scale, Mathf.Min(Mathf.Floor((appWidth - (sidePadding * 2 + 16) * scale) / 5), Mathf.Floor((stageHeight - 16 * scale) / 6))));
             ApplyLayout(width, height, scale, (width - appWidth) * .5f, appWidth, 0, 0, stageY, stageHeight,
                 width * .5f - cell * 2.5f, stageY + (stageHeight - cell * 6) * .5f, cell * 5, cell * 6, false, canvas.scaleFactor);
         }

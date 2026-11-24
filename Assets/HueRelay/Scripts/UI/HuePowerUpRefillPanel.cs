@@ -44,7 +44,7 @@ namespace HueRelay
             if (!card) return;
             var parent = (RectTransform)transform;
             card.localScale = Vector3.one * Mathf.Max(.1f, Mathf.Min(1,
-                (parent.rect.width - 32) / 326, (parent.rect.height - 32) / 362));
+                Mathf.Min((parent.rect.width - 32) / 326, (parent.rect.height - 32) / 362)));
         }
     }
 }
